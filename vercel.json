@@ -1,0 +1,23 @@
+{
+  "builds": [
+    {
+      "src": "app/main.py",
+      "use": "@vercel/python",
+      "config": {
+        "maxLambdaSize": "50mb"
+      }
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "app/routers/items.py"
+    }
+  ],
+  "build": {
+    "env": {
+      "PIP_ONLY_BINARY": ":all:",
+      "PIP_NO_BUILD_ISOLATION": "false"
+    }
+  }
+}
