@@ -111,7 +111,7 @@ async def get_user_information(
 
 
 @router.get("/getUserInformationByUserName")
-async def get_user_information(
+async def get_user_information_by_user_name(
         request: GetUserInformationByUserNameRequest
 ):
     user_id = generate_user_id(request.userName)
@@ -139,7 +139,7 @@ async def set_story_name(
 
 
 @router.delete("/deleteStory", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_user(
+async def delete_story(
         request: DeleteStoryRequest
 ):
     user = get_user_session(request.userId)
