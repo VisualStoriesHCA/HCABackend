@@ -56,13 +56,13 @@ class Image:
 
 
 class Story:
-    def __init__(self, story_id: str):
+    def __init__(self, story_id: str, story_name: str):
         self.id: str = story_id
         self.images: List[Image] = []
-        self.coverage_image: str = ""
-        self.last_edited: str = ""
-        self.name: str = ""
-        self.text: str = ""
+        self.coverage_image: str = "https://www.medien.ifi.lmu.de/team/rifat.amin/rifat_amin.jpg"
+        self.last_edited: str = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        self.name: str = story_name
+        self.text: str = "Type in your bootyful story bitch..."
 
     def to_dict(self):
         return {
@@ -101,6 +101,9 @@ class Story:
         operations = [ImageOperation.parse_image_operation(image_operation) for image_operation in image_operations]
         self.set_text("new text")
 
+    def set_story_name(self, story_name):
+        self.name = story_name
+
 
 class User:
     def __init__(self, name: str, user_name: str, user_id: str):
@@ -109,6 +112,7 @@ class User:
         self.account_created: str = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
         self.name: str = name
         self.user_name: str = user_name
+        self._total_number_of_stories_generated: int = 0
 
     def __str__(self):
         buffer = ""
@@ -125,6 +129,18 @@ class User:
             "userName": self.user_name,
             "accountCreated": self.account_created
         }
+
+    def create_story(self, story_name: str) -> str:
+        story_id = f"s_{self._total_number_of_stories_generated}"
+        self._total_number_of_stories_generated += 1
+        self.stories[story_id] = Story(story_name=story_name, story_id=story_id)
+        return story_id
+
+    def delete_story(self, story_id: str) -> bool:
+        if story_id in self.stories:
+            del self.stories[story_id]
+            return True
+        return False
 
     def get_stories(self, max_entries: int = 1) -> List[Story]:
         return list(self.stories.values())[:max_entries]

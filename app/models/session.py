@@ -14,3 +14,10 @@ def create_user_session(name: str, user_name: str, user_id: str) -> User:
 
 def get_user_session(user_id: str) -> User:
     return active_sessions.get(user_id)
+
+
+def delete_user_session(user_id: str) -> bool:
+    if user_id in active_sessions:
+        del active_sessions[user_id]
+        return True
+    return False
