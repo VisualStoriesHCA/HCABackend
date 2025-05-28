@@ -41,8 +41,8 @@ class ImageOperation:
 
 
 class Image:
-    def __init__(self, imageID: str):
-        self.id: str = imageID
+    def __init__(self, imageId: str):
+        self.id: str = imageId
         self.url: str = ""
         self.alt: str = ""
 
@@ -65,7 +65,7 @@ class Story:
 
     def to_dict(self):
         return {
-            "storyID": self.id,
+            "storyId": self.id,
             "coverImage": self.coverage_image,
             "storyName": self.name,
             "lastEdited": self.last_edited,
@@ -75,7 +75,7 @@ class Story:
 
     def to_story_basic_information(self):
         return {
-            "storyID": self.id,
+            "storyId": self.id,
             "coverImage": self.coverage_image,
             "storyName": self.name,
             "lastEdited": self.last_edited
