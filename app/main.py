@@ -40,13 +40,7 @@ async def health_check():
 
 @app.get("/images/{user_id}/{story_id}/{image_id}")
 async def get_image(user_id: str, story_id: str, image_id: str):
-    image_path = f"./images/{user_id}/{story_id}/{image_id}.png"
-
-    # List all files and directories in the current folder
-    files_and_dirs = os.listdir(".")
-
-    print(files_and_dirs)
-
-    # if os.path.exists(image_path):
-    return FileResponse(image_path)
-    # return {"error": "Image not found"}
+    image_path = f"/etc/images/{user_id}/{story_id}/{image_id}.png"
+    if os.path.exists(image_path):
+        return FileResponse(image_path)
+    return {"error": "Image not found"}
