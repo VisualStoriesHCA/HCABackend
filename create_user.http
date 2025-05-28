@@ -1,0 +1,11 @@
+POST http://localhost:8080/createNewUser
+Content-Type: application/json
+
+{
+  "name": "John Doe",
+  "userName": "johndoe123"
+}
+
+
+
+

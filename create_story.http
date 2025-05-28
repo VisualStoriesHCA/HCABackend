@@ -1,0 +1,11 @@
+POST http://localhost:8080/createNewStory
+Content-Type: application/json
+
+{
+   "userId": "id_johndoe123",
+   "storyName": "this is a good story"
+}
+
+
+
+
