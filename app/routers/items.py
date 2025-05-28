@@ -188,7 +188,7 @@ async def update_text_by_images(
 
 
 @router.post("/uploadImage")
-async def update_text_by_images(
+async def upload_image(
         request: UploadImageRequest
 ):
     user = get_user_session(request.userId)
