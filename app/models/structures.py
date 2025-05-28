@@ -1,3 +1,4 @@
+import os
 from collections import OrderedDict
 from datetime import datetime, timezone
 from enum import Enum
@@ -109,9 +110,14 @@ class Story:
     def upload_image(self, image_binary: str):
         image_id = f"img_{self._total_number_of_images_generated}"
         self._total_number_of_images_generated += 1
-        with open(f"./images/{self.user_id}/{self.id}/{image_id}.png", "wb") as img_file:
+        dir_path = f"/etc/images/{self.user_id}/{self.id}"
+        os.makedirs(dir_path, exist_ok=True)
+        with open(f"{dir_path}/{image_id}.png", "wb") as img_file:
+            image_binary = "".join(filter(lambda x: x in "01", image_binary))
+            image_binary = bytearray(
+                int(image_binary[i:i + 8], 2) for i in range(0, len(image_binary), 8))
             img_file.write(image_binary)
-        image_url = f"http://localhost:8080/i{self.user_id}/{self.id}/{image_id}.png"
+        image_url = f"http://localhost:8080/images/{self.user_id}/{self.id}/{image_id}"
         self.images.append(Image(image_id=image_id, image_url=image_url))
 
 
