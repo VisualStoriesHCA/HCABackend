@@ -1,7 +1,7 @@
 from collections import OrderedDict
+from datetime import datetime, timezone
 from enum import Enum
 from typing import List, Dict
-from datetime import datetime, timezone
 
 
 class Operation(Enum):
@@ -103,23 +103,26 @@ class Story:
 
 
 class User:
-    def __init__(self, user_id: str, username: str):
+    def __init__(self, name: str, user_name: str, user_id: str):
         self.id: str = user_id
         self.stories: OrderedDict[str, Story] = OrderedDict()
         self.account_created: str = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-        self.name: str = username
+        self.name: str = name
+        self.user_name: str = user_name
 
     def __str__(self):
         buffer = ""
         buffer += "Id:              " + self.id + "\n"
         buffer += "Name:            " + self.name + "\n"
+        buffer += "Username:        " + self.user_name + "\n"
         buffer += "Account Created: " + self.account_created + "\n"
         return buffer
 
     def to_dict(self):
         return {
             "userId": self.id,
-            "userName": self.name,
+            "name": self.name,
+            "userName": self.user_name,
             "accountCreated": self.account_created
         }
 
