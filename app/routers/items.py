@@ -130,3 +130,14 @@ async def update_text_by_images(
     story = user.get_story(storyId)
     story.update_from_image_operations(imageOperations)
     return story.to_story_details_response()
+
+@router.post("/uploadImage")
+async def update_text_by_images(
+        userId:str,
+        storyId:str,
+        imageFile:str,
+):
+    user = get_user_session(userId)
+    story = user.get_story(storyId)
+    story.upload_image(imageFile)
+    return story.to_story_details_response()
