@@ -3,10 +3,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .config import settings
-from .models.session import create_user_session, get_user_session
+from .models.session import get_user_session
 from .routers import items
-
-create_user_session("u1", "Rifat")
 
 app = FastAPI(
     title=settings.PROJECT_NAME,

@@ -1,9 +1,9 @@
 # app/routers/items.py
 from typing import Optional, List, Dict
 
-from fastapi import APIRouter
+from fastapi import APIRouter, status
 
-from ..models.session import get_user_session
+from ..models.session import get_user_session, create_user_session
 
 router = APIRouter(
     prefix="/items",
@@ -12,7 +12,12 @@ router = APIRouter(
 )
 
 router = APIRouter()
-
+@router.post("/createNewUser", status_code=status.HTTP_201_CREATED)
+async def get_user_information(
+        userName: str
+):
+    user = create_user_session("u1", userName)
+    return user.to_dict()
 
 @router.get("/getUserInformation")
 async def get_user_information(
