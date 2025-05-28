@@ -42,10 +42,10 @@ class ImageOperation:
 
 
 class Image:
-    def __init__(self, imageId: str):
-        self.id: str = imageId
+    def __init__(self, image_id: str):
+        self.id: str = image_id
         self.url: str = ""
-        self.alt: str = ""
+        self.alt: str = "no title sorry"
 
     def to_dict(self):
         return {
@@ -56,13 +56,15 @@ class Image:
 
 
 class Story:
-    def __init__(self, story_id: str, story_name: str):
+    def __init__(self, story_id: str, story_name: str, user_id: str):
+        self.user_id = user_id
         self.id: str = story_id
         self.images: List[Image] = []
         self.coverage_image: str = "https://www.medien.ifi.lmu.de/team/rifat.amin/rifat_amin.jpg"
         self.last_edited: str = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
         self.name: str = story_name
         self.text: str = "Type in your bootyful story bitch..."
+        self._total_number_of_images_generated = 0
 
     def to_dict(self):
         return {
@@ -104,6 +106,12 @@ class Story:
     def set_story_name(self, story_name):
         self.name = story_name
 
+    def upload_image(self, image_binary:str):
+        image_id = f"img_{self._total_number_of_images_generated}"
+        self._total_number_of_images_generated += 1
+        with open(f"./images/{self.user_id}/{self.id}/{image_id}.png", "wb") as img_file:
+            img_file.write(image_binary)
+        self.images.append(Image(image_id=image_id))
 
 class User:
     def __init__(self, name: str, user_name: str, user_id: str):
@@ -133,7 +141,7 @@ class User:
     def create_story(self, story_name: str) -> str:
         story_id = f"s_{self._total_number_of_stories_generated}"
         self._total_number_of_stories_generated += 1
-        self.stories[story_id] = Story(story_name=story_name, story_id=story_id)
+        self.stories[story_id] = Story(story_name=story_name, story_id=story_id, user_id=self.id)
         return story_id
 
     def delete_story(self, story_id: str) -> bool:
