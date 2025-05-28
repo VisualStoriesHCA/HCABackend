@@ -1,9 +1,9 @@
 # app/routers/items.py
 from typing import Optional, List, Dict
 
-from fastapi import APIRouter, status
+from fastapi import APIRouter, status, HTTPException
 
-from ..models.session import get_user_session, create_user_session
+from ..models.session import get_user_session, create_user_session, generate_user_id
 
 router = APIRouter(
     prefix="/items",
@@ -13,10 +13,20 @@ router = APIRouter(
 
 router = APIRouter()
 @router.post("/createNewUser", status_code=status.HTTP_201_CREATED)
-async def get_user_information(
-        userName: str
+async def create_new_user(
+        userName: str,
+        name: str,
 ):
-    user = create_user_session("u1", userName)
+    user_id = generate_user_id(userName)
+    if get_user_session(user_id):
+        raise HTTPException(
+            status_code=400,
+            detail=f"User '{userName}' already exists"
+        )
+
+    user = create_user_session(name=name,
+                               user_name=userName,
+                               user_id=user_id)
     return user.to_dict()
 
 @router.get("/getUserInformation")
