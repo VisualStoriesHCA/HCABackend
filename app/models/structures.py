@@ -106,12 +106,13 @@ class Story:
     def set_story_name(self, story_name):
         self.name = story_name
 
-    def upload_image(self, image_binary:str):
+    def upload_image(self, image_binary: str):
         image_id = f"img_{self._total_number_of_images_generated}"
         self._total_number_of_images_generated += 1
         with open(f"./images/{self.user_id}/{self.id}/{image_id}.png", "wb") as img_file:
             img_file.write(image_binary)
         self.images.append(Image(image_id=image_id))
+
 
 class User:
     def __init__(self, name: str, user_name: str, user_id: str):
