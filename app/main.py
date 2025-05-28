@@ -1,6 +1,9 @@
 # app/main.py
+import os
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 
 from .config import settings
 from .models.session import get_user_session
@@ -33,3 +36,18 @@ async def root():
 @app.get("/health")
 async def health_check():
     return {"status": "healthy"}
+
+
+@app.get("/images/{user_id}/{story_id}/{image_id}")
+async def get_image(user_id: str, story_id: str, image_id: str):
+    image_path = f"./images/{user_id}/{story_id}/{image_id}.png"
+
+
+    # List all files and directories in the current folder
+    files_and_dirs = os.listdir(".")
+
+    print(files_and_dirs)
+
+    #if os.path.exists(image_path):
+    return FileResponse(image_path)
+    #return {"error": "Image not found"}

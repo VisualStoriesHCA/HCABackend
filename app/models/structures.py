@@ -42,9 +42,9 @@ class ImageOperation:
 
 
 class Image:
-    def __init__(self, image_id: str):
+    def __init__(self, image_id: str, image_url: str):
         self.id: str = image_id
-        self.url: str = ""
+        self.url: str = image_url
         self.alt: str = "no title sorry"
 
     def to_dict(self):
@@ -111,7 +111,8 @@ class Story:
         self._total_number_of_images_generated += 1
         with open(f"./images/{self.user_id}/{self.id}/{image_id}.png", "wb") as img_file:
             img_file.write(image_binary)
-        self.images.append(Image(image_id=image_id))
+        image_url = f"http://localhost:8080/i{self.user_id}/{self.id}/{image_id}.png"
+        self.images.append(Image(image_id=image_id, image_url=image_url))
 
 
 class User:
