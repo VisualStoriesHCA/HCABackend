@@ -16,40 +16,40 @@ router = APIRouter()
 
 @router.get("/getUserInformation")
 async def get_user_information(
-        userID: str
+        userId: str
 ):
-    user = get_user_session(userID)
+    user = get_user_session(userId)
     return user.to_dict()
 
 
 @router.get("/getUserStories")
 async def get_user_stories(
-        userID: str,
+        userId: str,
         maxEntries: Optional[int] = 50,
 ):
-    user = get_user_session(userID)
+    user = get_user_session(userId)
     return {
         "stories": [story.to_story_basic_information() for story in user.get_stories(maxEntries)]
     }
 
 
-@router.get("/getStoryByID")
+@router.get("/getStoryById")
 async def get_story_by_id(
-        userID: str,
-        storyID: str
+        userId: str,
+        storyId: str
 ):
-    user = get_user_session(userID)
-    return user.get_story(storyID).to_story_details_response()
+    user = get_user_session(userId)
+    return user.get_story(storyId).to_story_details_response()
 
 
 @router.post("/updateImagesByText")
 async def update_images_by_text(
-        userID: str,
-        storyID: str,
+        userId: str,
+        storyId: str,
         updatedText: str,
 ):
-    user = get_user_session(userID)
-    story = user.get_story(storyID)
+    user = get_user_session(userId)
+    story = user.get_story(storyId)
     story.set_text(updatedText)
     story.update_images_by_text()
     return story.to_story_details_response()
@@ -57,11 +57,11 @@ async def update_images_by_text(
 
 @router.post("/updateTextByImages")
 async def update_text_by_images(
-        userID: str,
-        storyID: str,
+        userId: str,
+        storyId: str,
         imageOperations: List[Dict],
 ):
-    user = get_user_session(userID)
-    story = user.get_story(storyID)
+    user = get_user_session(userId)
+    story = user.get_story(storyId)
     story.update_from_image_operations(imageOperations)
     return story.to_story_details_response()
