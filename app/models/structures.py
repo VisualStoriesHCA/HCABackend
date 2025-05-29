@@ -163,3 +163,20 @@ class User:
 
     def get_story(self, story_id: str) -> Story:
         return self.stories[story_id]
+
+class Operation(Enum):
+    NO_CHANGE = 1
+    SKETCH_FROM_SCRATCH = 2
+    SKETCH_ON_IMAGE = 3
+
+    @staticmethod
+    def parse_operation(operation: str) -> "Operation":
+        match operation.lower().strip():
+            case "nochange":
+                return Operation.NO_CHANGE
+            case "sketchfromscratch":
+                return Operation.SKETCH_FROM_SCRATCH
+            case "sketchonimage":
+                return Operation.SKETCH_ON_IMAGE
+            case _:
+                raise Exception(f"Unknown operation {operation}")

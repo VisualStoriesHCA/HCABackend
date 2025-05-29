@@ -1,8 +1,8 @@
 # app/routers/items.py
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Union, Literal
 
 from fastapi import APIRouter, status, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from ..models.session import get_user_session, create_user_session, generate_user_id, delete_user_session
 
@@ -12,9 +12,33 @@ router = APIRouter(
     responses={404: {"description": "Not found"}},
 )
 
-router = APIRouter()
+# Image Operation Models
+class NoChangeOperation(BaseModel):
+    type: Literal["nochange"]
+    imageId: str = Field(..., description="Id of the existing image", example="img_891415125124_1")
 
 
+class SketchFromScratchOperation(BaseModel):
+    type: Literal["sketchFromScratch"]
+    canvasData: str = Field(..., description="Base64 encoded canvas data for drawings", 
+                           example="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA...")
+    alt: Optional[str] = Field(None, description="Alternative text for new or modified images", 
+                               example="Hand-drawn sketch of a castle")
+
+
+class SketchOnImageOperation(BaseModel):
+    type: Literal["sketchOnImage"]
+    imageId: str = Field(..., description="Id of the existing image", example="img_891415125124_1")
+    canvasData: str = Field(..., description="Base64 encoded canvas data for drawings", 
+                           example="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA...")
+    alt: Optional[str] = Field(None, description="Alternative text for new or modified images", 
+                               example="Hand-drawn sketch of a castle")
+
+
+# Union type for all image operations
+ImageOperation = Union[NoChangeOperation, SketchFromScratchOperation, SketchOnImageOperation]
+
+# Request Models
 class CreateUserRequest(BaseModel):
     userName: str
     name: str
@@ -49,7 +73,8 @@ class UpdateImagesByTextRequest(BaseModel):
 class UpdateTextByImagesRequest(BaseModel):
     userId: str
     storyId: str
-    imageOperations: List[Dict]
+    imageOperations: List[ImageOperation] = Field(..., 
+        description="List of image operations to perform")
 
 
 class UploadImageRequest(BaseModel):
@@ -58,7 +83,40 @@ class UploadImageRequest(BaseModel):
     imageFile: str
 
 
-@router.post("/createNewUser", status_code=status.HTTP_201_CREATED)
+# Response Models
+class UserResponse(BaseModel):
+    userId: str
+    name: str
+    userName: str
+    accountCreated: str
+
+
+class StoryBasicInfoResponse(BaseModel):
+    storyId: str
+    coverImage: str
+    storyName: str
+    lastEdited: str
+
+
+class ImageResponse(BaseModel):
+    imageId: str
+    url: str
+    alt: str
+
+
+class StoryDetailsResponse(BaseModel):
+    storyId: str
+    storyName: str
+    storyText: str
+    storyImages: List[ImageResponse]
+
+
+class UserStoriesResponse(BaseModel):
+    stories: List[StoryBasicInfoResponse]
+
+
+# Endpoints
+@router.post("/createNewUser", status_code=status.HTTP_201_CREATED, response_model=UserResponse, operation_id="createUser")
 async def create_new_user(
         request: CreateUserRequest
 ):
@@ -75,7 +133,7 @@ async def create_new_user(
     return user.to_dict()
 
 
-@router.delete("/deleteUser", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/deleteUser", status_code=status.HTTP_204_NO_CONTENT, operation_id="deleteUser")
 async def delete_user(
         request: DeleteUserRequest
 ):
@@ -84,7 +142,7 @@ async def delete_user(
         raise HTTPException(status_code=404, detail="User not found")
 
 
-@router.get("/getUserInformation")
+@router.get("/getUserInformation", response_model=UserResponse, operation_id="getUserInfo")
 async def get_user_information(
         userId: str
 ):
@@ -94,7 +152,7 @@ async def get_user_information(
     return user.to_dict()
 
 
-@router.get("/getUserInformationByUserName")
+@router.get("/getUserInformationByUserName", response_model=UserResponse, operation_id="getUserInfoByUsername")
 async def get_user_information_by_user_name(
         userName: str
 ):
@@ -105,7 +163,7 @@ async def get_user_information_by_user_name(
     return user.to_dict()
 
 
-@router.post("/createNewStory", status_code=status.HTTP_201_CREATED)
+@router.post("/createNewStory", status_code=status.HTTP_201_CREATED, response_model=StoryBasicInfoResponse, operation_id="createStory")
 async def create_new_story(
         request: CreateNewStoryRequest,
 ):
@@ -116,7 +174,7 @@ async def create_new_story(
     return user.get_story(story_id).to_story_basic_information()
 
 
-@router.post("/setStoryName", status_code=status.HTTP_201_CREATED)
+@router.post("/setStoryName", status_code=status.HTTP_201_CREATED, response_model=StoryBasicInfoResponse, operation_id="updateStoryName")
 async def set_story_name(
         request: SetStoryNameRequest
 ):
@@ -130,7 +188,7 @@ async def set_story_name(
     return story.to_story_basic_information()
 
 
-@router.delete("/deleteStory", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/deleteStory", status_code=status.HTTP_204_NO_CONTENT, operation_id="deleteStory")
 async def delete_story(
         request: DeleteStoryRequest
 ):
@@ -142,7 +200,7 @@ async def delete_story(
         raise HTTPException(status_code=404, detail="Story not found")
 
 
-@router.get("/getUserStories")
+@router.get("/getUserStories", response_model=UserStoriesResponse, operation_id="getUserStories")
 async def get_user_stories(
         userId: str,
         maxEntries: Optional[int] = 50
@@ -155,7 +213,7 @@ async def get_user_stories(
     }
 
 
-@router.get("/getStoryById")
+@router.get("/getStoryById", response_model=StoryDetailsResponse, operation_id="getStory")
 async def get_story_by_id(
         userId: str,
         storyId: str
@@ -169,7 +227,7 @@ async def get_story_by_id(
     return story.to_story_details_response()
 
 
-@router.post("/updateImagesByText")
+@router.post("/updateImagesByText", response_model=StoryDetailsResponse, operation_id="updateImagesByText")
 async def update_images_by_text(
         request: UpdateImagesByTextRequest
 ):
@@ -184,7 +242,7 @@ async def update_images_by_text(
     return story.to_story_details_response()
 
 
-@router.post("/updateTextByImages")
+@router.post("/updateTextByImages", response_model=StoryDetailsResponse, operation_id="updateTextByImages")
 async def update_text_by_images(
         request: UpdateTextByImagesRequest
 ):
@@ -194,11 +252,13 @@ async def update_text_by_images(
     story = user.get_story(request.storyId)
     if not story:
         raise HTTPException(status_code=404, detail="Story not found")
-    story.update_from_image_operations(request.imageOperations)
+    # Convert Pydantic models to dicts for backward compatibility
+    image_operations_dicts = [op.model_dump() for op in request.imageOperations]
+    story.update_from_image_operations(image_operations_dicts)
     return story.to_story_details_response()
 
 
-@router.post("/uploadImage")
+@router.post("/uploadImage", response_model=StoryDetailsResponse, operation_id="uploadImage")
 async def upload_image(
         request: UploadImageRequest
 ):
