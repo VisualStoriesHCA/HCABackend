@@ -87,6 +87,8 @@ class Story:
 
     def to_story_details_response(self):
         return {
+            "storyId": self.id,
+            "storyName": self.name,
             "storyText": self.text,
             "storyImages": [image.to_dict() for image in self.images]
         }
