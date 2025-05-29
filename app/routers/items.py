@@ -24,14 +24,6 @@ class DeleteUserRequest(BaseModel):
     userId: str
 
 
-class GetUserInformationRequest(BaseModel):
-    userId: str
-
-
-class GetUserInformationByUserNameRequest(BaseModel):
-    userName: str
-
-
 class CreateNewStoryRequest(BaseModel):
     userId: str
     storyName: str
@@ -44,16 +36,6 @@ class SetStoryNameRequest(BaseModel):
 
 
 class DeleteStoryRequest(BaseModel):
-    userId: str
-    storyId: str
-
-
-class GetUserStoriesRequest(BaseModel):
-    userId: str
-    maxEntries: Optional[int] = 50
-
-
-class GetStoryByIdRequest(BaseModel):
     userId: str
     storyId: str
 
@@ -104,18 +86,22 @@ async def delete_user(
 
 @router.get("/getUserInformation")
 async def get_user_information(
-        request: GetUserInformationRequest
+        userId: str
 ):
-    user = get_user_session(request.userId)
+    user = get_user_session(userId)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
     return user.to_dict()
 
 
 @router.get("/getUserInformationByUserName")
 async def get_user_information_by_user_name(
-        request: GetUserInformationByUserNameRequest
+        userName: str
 ):
-    user_id = generate_user_id(request.userName)
+    user_id = generate_user_id(userName)
     user = get_user_session(user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
     return user.to_dict()
 
 
@@ -124,6 +110,8 @@ async def create_new_story(
         request: CreateNewStoryRequest,
 ):
     user = get_user_session(request.userId)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
     story_id = user.create_story(story_name=request.storyName)
     return user.get_story(story_id).to_story_basic_information()
 
@@ -133,7 +121,11 @@ async def set_story_name(
         request: SetStoryNameRequest
 ):
     user = get_user_session(request.userId)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
     story = user.get_story(story_id=request.storyId)
+    if not story:
+        raise HTTPException(status_code=404, detail="Story not found")
     story.set_story_name(request.storyName)
     return story.to_story_basic_information()
 
@@ -143,6 +135,8 @@ async def delete_story(
         request: DeleteStoryRequest
 ):
     user = get_user_session(request.userId)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
     success = user.delete_story(request.storyId)
     if not success:
         raise HTTPException(status_code=404, detail="Story not found")
@@ -150,20 +144,29 @@ async def delete_story(
 
 @router.get("/getUserStories")
 async def get_user_stories(
-        request: GetUserStoriesRequest
+        userId: str,
+        maxEntries: Optional[int] = 50
 ):
-    user = get_user_session(request.userId)
+    user = get_user_session(userId)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
     return {
-        "stories": [story.to_story_basic_information() for story in user.get_stories(request.maxEntries)]
+        "stories": [story.to_story_basic_information() for story in user.get_stories(maxEntries)]
     }
 
 
 @router.get("/getStoryById")
 async def get_story_by_id(
-        request: GetStoryByIdRequest
+        userId: str,
+        storyId: str
 ):
-    user = get_user_session(request.userId)
-    return user.get_story(request.storyId).to_story_details_response()
+    user = get_user_session(userId)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    story = user.get_story(storyId)
+    if not story:
+        raise HTTPException(status_code=404, detail="Story not found")
+    return story.to_story_details_response()
 
 
 @router.post("/updateImagesByText")
@@ -171,7 +174,11 @@ async def update_images_by_text(
         request: UpdateImagesByTextRequest
 ):
     user = get_user_session(request.userId)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
     story = user.get_story(request.storyId)
+    if not story:
+        raise HTTPException(status_code=404, detail="Story not found")
     story.set_text(request.updatedText)
     story.update_images_by_text()
     return story.to_story_details_response()
@@ -182,7 +189,11 @@ async def update_text_by_images(
         request: UpdateTextByImagesRequest
 ):
     user = get_user_session(request.userId)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
     story = user.get_story(request.storyId)
+    if not story:
+        raise HTTPException(status_code=404, detail="Story not found")
     story.update_from_image_operations(request.imageOperations)
     return story.to_story_details_response()
 
@@ -192,6 +203,10 @@ async def upload_image(
         request: UploadImageRequest
 ):
     user = get_user_session(request.userId)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
     story = user.get_story(request.storyId)
+    if not story:
+        raise HTTPException(status_code=404, detail="Story not found")
     story.upload_image(request.imageFile)
     return story.to_story_details_response()
