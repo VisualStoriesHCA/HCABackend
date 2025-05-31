@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
 from .config import settings
-from .models.session import get_user_session
+from .models.db import Base, engine
 from .routers import items
 
 app = FastAPI(
@@ -28,9 +28,14 @@ app.add_middleware(
 app.include_router(items.router)
 
 
+@app.on_event("startup")
+def on_startup():
+    Base.metadata.create_all(bind=engine)
+
+
 @app.get("/")
 async def root():
-    return {"message": str(get_user_session("u1"))}
+    return {"message": "connected to the server..."}
 
 
 @app.get("/health")
