@@ -1,5 +1,5 @@
 # app/routers/items.py
-from typing import Optional, List, Dict, Union, Literal
+from typing import Optional, List, Union, Literal
 
 from fastapi import APIRouter, status, HTTPException
 from pydantic import BaseModel, Field
@@ -12,6 +12,7 @@ router = APIRouter(
     responses={404: {"description": "Not found"}},
 )
 
+
 # Image Operation Models
 class NoChangeOperation(BaseModel):
     type: Literal["nochange"]
@@ -20,23 +21,24 @@ class NoChangeOperation(BaseModel):
 
 class SketchFromScratchOperation(BaseModel):
     type: Literal["sketchFromScratch"]
-    canvasData: str = Field(..., description="Base64 encoded canvas data for drawings", 
-                           example="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA...")
-    alt: Optional[str] = Field(None, description="Alternative text for new or modified images", 
+    canvasData: str = Field(..., description="Base64 encoded canvas data for drawings",
+                            example="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA...")
+    alt: Optional[str] = Field(None, description="Alternative text for new or modified images",
                                example="Hand-drawn sketch of a castle")
 
 
 class SketchOnImageOperation(BaseModel):
     type: Literal["sketchOnImage"]
     imageId: str = Field(..., description="Id of the existing image", example="img_891415125124_1")
-    canvasData: str = Field(..., description="Base64 encoded canvas data for drawings", 
-                           example="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA...")
-    alt: Optional[str] = Field(None, description="Alternative text for new or modified images", 
+    canvasData: str = Field(..., description="Base64 encoded canvas data for drawings",
+                            example="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA...")
+    alt: Optional[str] = Field(None, description="Alternative text for new or modified images",
                                example="Hand-drawn sketch of a castle")
 
 
 # Union type for all image operations
 ImageOperation = Union[NoChangeOperation, SketchFromScratchOperation, SketchOnImageOperation]
+
 
 # Request Models
 class CreateUserRequest(BaseModel):
@@ -73,8 +75,8 @@ class UpdateImagesByTextRequest(BaseModel):
 class UpdateTextByImagesRequest(BaseModel):
     userId: str
     storyId: str
-    imageOperations: List[ImageOperation] = Field(..., 
-        description="List of image operations to perform")
+    imageOperations: List[ImageOperation] = Field(...,
+                                                  description="List of image operations to perform")
 
 
 class UploadImageRequest(BaseModel):
@@ -116,7 +118,8 @@ class UserStoriesResponse(BaseModel):
 
 
 # Endpoints
-@router.post("/createNewUser", status_code=status.HTTP_201_CREATED, response_model=UserResponse, operation_id="createUser")
+@router.post("/createNewUser", status_code=status.HTTP_201_CREATED, response_model=UserResponse,
+             operation_id="createUser")
 async def create_new_user(
         request: CreateUserRequest
 ):
@@ -163,7 +166,8 @@ async def get_user_information_by_user_name(
     return user.to_dict()
 
 
-@router.post("/createNewStory", status_code=status.HTTP_201_CREATED, response_model=StoryBasicInfoResponse, operation_id="createStory")
+@router.post("/createNewStory", status_code=status.HTTP_201_CREATED, response_model=StoryBasicInfoResponse,
+             operation_id="createStory")
 async def create_new_story(
         request: CreateNewStoryRequest,
 ):
@@ -174,7 +178,8 @@ async def create_new_story(
     return user.get_story(story_id).to_story_basic_information()
 
 
-@router.post("/setStoryName", status_code=status.HTTP_201_CREATED, response_model=StoryBasicInfoResponse, operation_id="updateStoryName")
+@router.post("/setStoryName", status_code=status.HTTP_201_CREATED, response_model=StoryBasicInfoResponse,
+             operation_id="updateStoryName")
 async def set_story_name(
         request: SetStoryNameRequest
 ):

@@ -1,28 +1,26 @@
+import base64
 import os
+import re
 from collections import OrderedDict
 from datetime import datetime, timezone
 from enum import Enum
 from typing import List, Dict
-import re
-import base64
+
 
 class Operation(Enum):
-    KEEP = 1
-    REMOVE = 2
-    MODIFY = 3
-    ADD = 4
+    NO_CHANGE = 1
+    SKETCH_FROM_SCRATCH = 2
+    SKETCH_ON_IMAGE = 3
 
     @staticmethod
     def parse_operation(operation: str) -> "Operation":
         match operation.lower().strip():
-            case "KEEP":
-                return Operation.KEEP
-            case "REMOVE":
-                return Operation.REMOVE
-            case "MODIFY":
-                return Operation.MODIFY
-            case "ADD":
-                return Operation.ADD
+            case "nochange":
+                return Operation.NO_CHANGE
+            case "sketchfromscratch":
+                return Operation.SKETCH_FROM_SCRATCH
+            case "sketchonimage":
+                return Operation.SKETCH_ON_IMAGE
             case _:
                 raise Exception(f"Unknown operation {operation}")
 
@@ -166,20 +164,3 @@ class User:
 
     def get_story(self, story_id: str) -> Story:
         return self.stories[story_id]
-
-class Operation(Enum):
-    NO_CHANGE = 1
-    SKETCH_FROM_SCRATCH = 2
-    SKETCH_ON_IMAGE = 3
-
-    @staticmethod
-    def parse_operation(operation: str) -> "Operation":
-        match operation.lower().strip():
-            case "nochange":
-                return Operation.NO_CHANGE
-            case "sketchfromscratch":
-                return Operation.SKETCH_FROM_SCRATCH
-            case "sketchonimage":
-                return Operation.SKETCH_ON_IMAGE
-            case _:
-                raise Exception(f"Unknown operation {operation}")
