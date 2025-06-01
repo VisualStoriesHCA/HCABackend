@@ -1,10 +1,16 @@
 import base64
 import os
 import re
-from collections import OrderedDict
 from datetime import datetime, timezone
 from enum import Enum
 from typing import List, Dict
+
+from sqlalchemy import Integer, select, update
+from sqlalchemy import create_engine, Column, String, DateTime, ForeignKey, Enum as SqlEnum, Text
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import relationship, sessionmaker
+
+from ..models.db import Base
 
 
 class Operation(Enum):
@@ -26,7 +32,7 @@ class Operation(Enum):
 
 
 class ImageOperation:
-    def __init__(self, operation: Operation, image_id: str, canvas_data: str, alt: str = None):
+    def __init__(self, operation: Operation, image_id: str = None, canvas_data: str = None, alt: str = None):
         self.operation = operation
         self.image_id = image_id
         self.canvas_data = canvas_data
@@ -41,126 +47,136 @@ class ImageOperation:
         return image_operation
 
 
-class Image:
-    def __init__(self, image_id: str, image_url: str):
-        self.id: str = image_id
-        self.url: str = image_url
-        self.alt: str = "no title sorry"
+class Image(Base):
+    __tablename__ = 'images'
+    imageId = Column(String, primary_key=True)
+    url = Column(String)
+    alt = Column(String, default="no title sorry")
+    storyId = Column(String, ForeignKey('stories.storyId'))
 
     def to_dict(self):
         return {
-            "imageId": self.id,
+            "imageId": self.imageId,
             "url": self.url,
             "alt": self.alt
         }
 
 
-class Story:
-    def __init__(self, story_id: str, story_name: str, user_id: str):
-        self.user_id = user_id
-        self.id: str = story_id
-        self.images: List[Image] = []
-        self.coverage_image: str = "https://www.medien.ifi.lmu.de/team/rifat.amin/rifat_amin.jpg"
-        self.last_edited: str = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-        self.name: str = story_name
-        self.text: str = "Type in your bootyful story bitch..."
-        self._total_number_of_images_generated = 0
+class Story(Base):
+    __tablename__ = "stories"
+    storyId = Column(String, primary_key=True)
+    name = Column(String)
+    text = Column(Text, default="Type in your creative story...")
+    coverageImage = Column(String, default="http://localhost:8080/assets/logos/new_story")
+    lastEdited = Column(String, default=lambda: datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"))
+    userId = Column(String, ForeignKey('users.userId'))
+    image_counter = Column(Integer, default=0)
+
+    images = relationship("Image", backref="story", cascade="all, delete-orphan")
+
+    # --- Methods ---
 
     def to_dict(self):
         return {
-            "storyId": self.id,
-            "coverImage": self.coverage_image,
+            "storyId": self.storyId,
+            "coverImage": self.CoverageImage,
             "storyName": self.name,
-            "lastEdited": self.last_edited,
+            "lastEdited": self.lastEdited,
             "storyText": self.text,
-            "storyImages": [image.to_dict() for image in self.images]
+            "storyImages": reversed([image.to_dict() for image in self.images])
         }
 
     def to_story_basic_information(self):
         return {
-            "storyId": self.id,
-            "coverImage": self.coverage_image,
+            "storyId": self.storyId,
+            "coverImage": self.coverageImage,
             "storyName": self.name,
-            "lastEdited": self.last_edited
+            "lastEdited": self.lastEdited
         }
 
     def to_story_details_response(self):
         return {
-            "storyId": self.id,
+            "storyId": self.storyId,
             "storyName": self.name,
             "storyText": self.text,
-            "storyImages": [image.to_dict() for image in self.images]
+            "storyImages": reversed([image.to_dict() for image in self.images])
         }
 
     def set_text(self, updated_text: str):
         self.text = updated_text
+        self.lastEdited = datetime.now(timezone.utc)
 
     def update_images_by_text(self):
+        # placeholder: implement your actual logic here
         pass
 
     def update_text_by_images(self):
+        # placeholder: implement your actual logic here
         pass
 
     def update_from_image_operations(self, image_operations: List[Dict]):
-        operations = [ImageOperation.parse_image_operation(image_operation) for image_operation in image_operations]
-        self.set_text("new text")
+        operations = [ImageOperation.parse_image_operation(op) for op in image_operations]
+        self.set_text("new text")  # Placeholder logic
 
-    def set_story_name(self, story_name):
+    def set_story_name(self, story_name: str):
         self.name = story_name
+        self.lastEdited = datetime.now(timezone.utc)
 
     def upload_image(self, image_binary: str):
-        image_id = f"img_{self._total_number_of_images_generated}"
-        self._total_number_of_images_generated += 1
-        dir_path = f"/etc/images/{self.user_id}/{self.id}"
+        self.image_counter +=1
+        image_id = f"img_{self.image_counter}"
+        dir_path = f"/etc/images/{self.userId}/{self.storyId}"
         os.makedirs(dir_path, exist_ok=True)
+
         match = re.match(r"data:image/(?P<ext>\w+);base64,(?P<data>.+)", image_binary)
+        if not match:
+            raise ValueError("Invalid image binary format")
+
         file_extension = match.group("ext")
         base64_data = match.group("data")
-        with open(f"{dir_path}/{image_id}.{file_extension}", "wb") as img_file:
+
+        image_filename = f"{image_id}.{file_extension}"
+        with open(os.path.join(dir_path, image_filename), "wb") as img_file:
             img_file.write(base64.b64decode(base64_data))
-        image_url = f"http://localhost:8080/images/{self.user_id}/{self.id}/{image_id}"
-        self.images.append(Image(image_id=image_id, image_url=image_url))
+
+        image_url = f"http://localhost:8080/images/{self.userId}/{self.storyId}/{image_id}"
+        new_image = Image(imageId=image_id, url=image_url, storyId=self.storyId)
+
+        self.images.append(new_image)
+        self.lastEdited = datetime.now(timezone.utc)
 
 
-class User:
-    def __init__(self, name: str, user_name: str, user_id: str):
-        self.id: str = user_id
-        self.stories: OrderedDict[str, Story] = OrderedDict()
-        self.account_created: str = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-        self.name: str = name
-        self.user_name: str = user_name
-        self._total_number_of_stories_generated: int = 0
+class User(Base):
+    __tablename__ = 'users'
+    userId = Column(String, primary_key=True)
+    name = Column(String)
+    userName = Column(String)
+    accountCreated = Column(String, default=lambda: datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"))
+    story_counter = Column(Integer, default=0)
+    stories = relationship("Story", backref="user", cascade="all, delete-orphan")
 
     def __str__(self):
-        buffer = ""
-        buffer += "Id:              " + self.id + "\n"
-        buffer += "Name:            " + self.name + "\n"
-        buffer += "Username:        " + self.user_name + "\n"
-        buffer += "Account Created: " + self.account_created + "\n"
-        return buffer
+        return f"Id: {self.userId}\nName: {self.name}\nUsername: {self.userName}\nAccount Created: {self.accountCreated}"
 
     def to_dict(self):
         return {
-            "userId": self.id,
+            "userId": self.userId,
             "name": self.name,
-            "userName": self.user_name,
-            "accountCreated": self.account_created
+            "userName": self.userName,
+            "accountCreated": self.accountCreated
         }
 
     def create_story(self, story_name: str) -> str:
-        story_id = f"s_{self._total_number_of_stories_generated}"
-        self._total_number_of_stories_generated += 1
-        self.stories[story_id] = Story(story_name=story_name, story_id=story_id, user_id=self.id)
-        return story_id
+        self.story_counter += 1
+        storyId = f"s_{self.story_counter}"
+        story = Story(storyId=storyId, name=story_name, userId=self.userId)
+        return story
 
-    def delete_story(self, story_id: str) -> bool:
-        if story_id in self.stories:
-            del self.stories[story_id]
-            return True
-        return False
+    def get_stories(self, max_entries: int = 1):
+        return self.stories[:max_entries]
 
-    def get_stories(self, max_entries: int = 1) -> List[Story]:
-        return list(self.stories.values())[:max_entries]
-
-    def get_story(self, story_id: str) -> Story:
-        return self.stories[story_id]
+    def get_story(self, storyId: str) -> Story:
+        for s in self.stories:
+            if s.storyId == storyId:
+                return s
+        raise ValueError("Story not found")
