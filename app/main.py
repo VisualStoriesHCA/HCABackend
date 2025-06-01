@@ -53,6 +53,13 @@ async def get_image(user_id: str, story_id: str, image_id: str):
         return FileResponse(image_path)
     return {"error": "Image not found"}
 
+@app.get("/assets/logos/{image_id}")
+async def get_image(image_id: str):
+    image_path = f"/app/app/assets/logos/{image_id}.png"
+    if os.path.exists(image_path):
+        return FileResponse(image_path)
+    return {"error": "Image not found"}
+
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):

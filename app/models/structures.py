@@ -66,8 +66,8 @@ class Story(Base):
     __tablename__ = "stories"
     storyId = Column(String, primary_key=True)
     name = Column(String)
-    text = Column(Text, default="Type in your bootyful story bitch...")
-    coverageImage = Column(String, default="https://www.medien.ifi.lmu.de/team/rifat.amin/rifat_amin.jpg")
+    text = Column(Text, default="Type in your creative story...")
+    coverageImage = Column(String, default="http://localhost:8080/assets/logos/new_story")
     lastEdited = Column(String, default=lambda: datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"))
     userId = Column(String, ForeignKey('users.userId'))
     image_counter = Column(Integer, default=0)
