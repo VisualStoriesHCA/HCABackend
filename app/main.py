@@ -2,8 +2,11 @@
 import os
 
 from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.requests import Request
 from fastapi.responses import FileResponse
+from fastapi.responses import JSONResponse
 
 from .config import settings
 from .models.db import Base, engine
@@ -49,3 +52,12 @@ async def get_image(user_id: str, story_id: str, image_id: str):
     if os.path.exists(image_path):
         return FileResponse(image_path)
     return {"error": "Image not found"}
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    print(f"Validation Error: {exc}")
+    return JSONResponse(
+        status_code=422,
+        content={"detail": exc.errors(), "body": exc.body},
+    )
