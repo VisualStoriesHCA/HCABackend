@@ -12,3 +12,4 @@ websockets
 asyncio
 pandas
 pydantic==2.7.0
+sqlalchemy

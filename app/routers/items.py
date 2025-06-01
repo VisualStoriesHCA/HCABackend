@@ -1,10 +1,19 @@
 # app/routers/items.py
-from typing import Optional, List, Union, Literal
 
-from fastapi import APIRouter, status, HTTPException
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, Depends, HTTPException, status, Query
+from sqlalchemy.orm import Session
 
-from ..models.session import get_user_session, create_user_session, generate_user_id, delete_user_session
+from ..models.db import SessionLocal
+from ..models.structures import User, Story
+from ..models.utils import generate_user_id
+from ..routers.schemas import (
+    CreateUserRequest, UserResponse,
+    DeleteUserRequest, CreateNewStoryRequest,
+    SetStoryNameRequest, DeleteStoryRequest,
+    UserStoriesResponse, StoryBasicInfoResponse,
+    StoryDetailsResponse, UpdateImagesByTextRequest,
+    UpdateTextByImagesRequest, UploadImageRequest
+)
 
 router = APIRouter(
     prefix="/items",
@@ -13,265 +22,130 @@ router = APIRouter(
 )
 
 
-# Image Operation Models
-class NoChangeOperation(BaseModel):
-    type: Literal["nochange"]
-    imageId: str = Field(..., description="Id of the existing image", example="img_891415125124_1")
-
-
-class SketchFromScratchOperation(BaseModel):
-    type: Literal["sketchFromScratch"]
-    canvasData: str = Field(..., description="Base64 encoded canvas data for drawings",
-                            example="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA...")
-    alt: Optional[str] = Field(None, description="Alternative text for new or modified images",
-                               example="Hand-drawn sketch of a castle")
-
-
-class SketchOnImageOperation(BaseModel):
-    type: Literal["sketchOnImage"]
-    imageId: str = Field(..., description="Id of the existing image", example="img_891415125124_1")
-    canvasData: str = Field(..., description="Base64 encoded canvas data for drawings",
-                            example="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA...")
-    alt: Optional[str] = Field(None, description="Alternative text for new or modified images",
-                               example="Hand-drawn sketch of a castle")
-
-
-# Union type for all image operations
-ImageOperation = Union[NoChangeOperation, SketchFromScratchOperation, SketchOnImageOperation]
-
-
-# Request Models
-class CreateUserRequest(BaseModel):
-    userName: str
-    name: str
-
-
-class DeleteUserRequest(BaseModel):
-    userId: str
-
-
-class CreateNewStoryRequest(BaseModel):
-    userId: str
-    storyName: str
-
-
-class SetStoryNameRequest(BaseModel):
-    userId: str
-    storyId: str
-    storyName: str
-
-
-class DeleteStoryRequest(BaseModel):
-    userId: str
-    storyId: str
-
-
-class UpdateImagesByTextRequest(BaseModel):
-    userId: str
-    storyId: str
-    updatedText: str
-
-
-class UpdateTextByImagesRequest(BaseModel):
-    userId: str
-    storyId: str
-    imageOperations: List[ImageOperation] = Field(...,
-                                                  description="List of image operations to perform")
-
-
-class UploadImageRequest(BaseModel):
-    userId: str
-    storyId: str
-    imageFile: str
-
-
-# Response Models
-class UserResponse(BaseModel):
-    userId: str
-    name: str
-    userName: str
-    accountCreated: str
-
-
-class StoryBasicInfoResponse(BaseModel):
-    storyId: str
-    coverImage: str
-    storyName: str
-    lastEdited: str
-
-
-class ImageResponse(BaseModel):
-    imageId: str
-    url: str
-    alt: str
-
-
-class StoryDetailsResponse(BaseModel):
-    storyId: str
-    storyName: str
-    storyText: str
-    storyImages: List[ImageResponse]
-
-
-class UserStoriesResponse(BaseModel):
-    stories: List[StoryBasicInfoResponse]
-
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
 # Endpoints
-@router.post("/createNewUser", status_code=status.HTTP_201_CREATED, response_model=UserResponse,
-             operation_id="createUser")
-async def create_new_user(
-        request: CreateUserRequest
-):
+@router.post("/createNewUser", status_code=status.HTTP_201_CREATED, response_model=UserResponse)
+async def create_new_user(request: CreateUserRequest, db: Session = Depends(get_db)):
     user_id = generate_user_id(request.userName)
-    if get_user_session(user_id):
-        raise HTTPException(
-            status_code=400,
-            detail=f"User '{request.userName}' already exists"
-        )
+    existing_user = db.query(User).filter(User.userId == user_id).first()
+    if existing_user:
+        raise HTTPException(status_code=400, detail=f"User '{request.userName}' already exists")
 
-    user = create_user_session(name=request.name,
-                               user_name=request.userName,
-                               user_id=user_id)
-    return user.to_dict()
-
-
-@router.delete("/deleteUser", status_code=status.HTTP_204_NO_CONTENT, operation_id="deleteUser")
-async def delete_user(
-        request: DeleteUserRequest
-):
-    success = delete_user_session(request.userId)
-    if not success:
-        raise HTTPException(status_code=404, detail="User not found")
+    new_user = User(userId=user_id, name=request.name, userName=request.userName)
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+    return UserResponse.from_orm(new_user)
 
 
-@router.get("/getUserInformation", response_model=UserResponse, operation_id="getUserInfo")
-async def get_user_information(
-        userId: str
-):
-    user = get_user_session(userId)
+@router.delete("/deleteUser", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_user(request: DeleteUserRequest, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.userId == request.userId).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    return user.to_dict()
+    db.delete(user)
+    db.commit()
 
 
-@router.get("/getUserInformationByUserName", response_model=UserResponse, operation_id="getUserInfoByUsername")
-async def get_user_information_by_user_name(
-        userName: str
-):
+@router.get("/getUserInformation", response_model=UserResponse)
+async def get_user_information(userId: str, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.userId == userId).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return UserResponse.from_orm(user)
+
+
+@router.get("/getUserInformationByUserName", response_model=UserResponse)
+async def get_user_information_by_user_name(userName: str = Query(...),
+                                            db: Session = Depends(get_db)):
     user_id = generate_user_id(userName)
-    user = get_user_session(user_id)
+    user = db.query(User).filter(User.userId == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    return user.to_dict()
+    return UserResponse.from_orm(user)
 
 
-@router.post("/createNewStory", status_code=status.HTTP_201_CREATED, response_model=StoryBasicInfoResponse,
-             operation_id="createStory")
-async def create_new_story(
-        request: CreateNewStoryRequest,
-):
-    user = get_user_session(request.userId)
+@router.post("/createNewStory", response_model=StoryBasicInfoResponse)
+async def create_new_story(request: CreateNewStoryRequest, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.userId == request.userId).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    story_id = user.create_story(story_name=request.storyName)
-    return user.get_story(story_id).to_story_basic_information()
-
-
-@router.post("/setStoryName", status_code=status.HTTP_201_CREATED, response_model=StoryBasicInfoResponse,
-             operation_id="updateStoryName")
-async def set_story_name(
-        request: SetStoryNameRequest
-):
-    user = get_user_session(request.userId)
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    story = user.get_story(story_id=request.storyId)
-    if not story:
-        raise HTTPException(status_code=404, detail="Story not found")
-    story.set_story_name(request.storyName)
+    story = user.create_story(story_name=request.storyName)
+    db.add(story)
+    db.commit()
+    db.refresh(story)
     return story.to_story_basic_information()
 
 
-@router.delete("/deleteStory", status_code=status.HTTP_204_NO_CONTENT, operation_id="deleteStory")
-async def delete_story(
-        request: DeleteStoryRequest
-):
-    user = get_user_session(request.userId)
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    success = user.delete_story(request.storyId)
-    if not success:
+@router.post("/setStoryName", response_model=StoryBasicInfoResponse)
+async def set_story_name(request: SetStoryNameRequest, db: Session = Depends(get_db)):
+    story = db.query(Story).filter(Story.storyId == request.storyId).first()
+    if not story:
         raise HTTPException(status_code=404, detail="Story not found")
+    story.name = request.storyName
+    db.commit()
+    db.refresh(story)
+    return story.to_story_basic_information()
+
+
+@router.delete("/deleteStory", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_story(request: DeleteStoryRequest, db: Session = Depends(get_db)):
+    story = db.query(Story).filter(Story.storyId == request.storyId).first()
+    if not story:
+        raise HTTPException(status_code=404, detail="Story not found")
+    db.delete(story)
+    db.commit()
 
 
 @router.get("/getUserStories", response_model=UserStoriesResponse, operation_id="getUserStories")
-async def get_user_stories(
-        userId: str,
-        maxEntries: Optional[int] = 50
-):
-    user = get_user_session(userId)
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    return {
-        "stories": [story.to_story_basic_information() for story in user.get_stories(maxEntries)]
-    }
+async def get_user_stories(userId: str = Query(...),
+                           maxEntries: int = Query(50),
+                           db: Session = Depends(get_db)
+                           ):
+    stories = db.query(Story).filter(Story.userId == userId).limit(maxEntries).all()
+    return {"stories": reversed([story.to_story_basic_information() for story in stories])}
 
 
-@router.get("/getStoryById", response_model=StoryDetailsResponse, operation_id="getStory")
-async def get_story_by_id(
-        userId: str,
-        storyId: str
-):
-    user = get_user_session(userId)
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    story = user.get_story(storyId)
+@router.get("/getStoryById", response_model=StoryDetailsResponse)
+async def get_story_by_id(userId: str, storyId: str, db: Session = Depends(get_db)):
+    story = db.query(Story).filter(Story.storyId == storyId, Story.userId == userId).first()
     if not story:
         raise HTTPException(status_code=404, detail="Story not found")
     return story.to_story_details_response()
 
 
-@router.post("/updateImagesByText", response_model=StoryDetailsResponse, operation_id="updateImagesByText")
-async def update_images_by_text(
-        request: UpdateImagesByTextRequest
-):
-    user = get_user_session(request.userId)
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    story = user.get_story(request.storyId)
+@router.post("/updateImagesByText", response_model=StoryDetailsResponse)
+async def update_images_by_text(request: UpdateImagesByTextRequest, db: Session = Depends(get_db)):
+    story = db.query(Story).filter(Story.storyId == request.storyId, Story.userId == request.userId).first()
     if not story:
         raise HTTPException(status_code=404, detail="Story not found")
-    story.set_text(request.updatedText)
+    story.text = request.updatedText
     story.update_images_by_text()
+    db.commit()
     return story.to_story_details_response()
 
 
-@router.post("/updateTextByImages", response_model=StoryDetailsResponse, operation_id="updateTextByImages")
-async def update_text_by_images(
-        request: UpdateTextByImagesRequest
-):
-    user = get_user_session(request.userId)
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    story = user.get_story(request.storyId)
+@router.post("/updateTextByImages", response_model=StoryDetailsResponse)
+async def update_text_by_images(request: UpdateTextByImagesRequest, db: Session = Depends(get_db)):
+    story = db.query(Story).filter(Story.storyId == request.storyId, Story.userId == request.userId).first()
     if not story:
         raise HTTPException(status_code=404, detail="Story not found")
-    # Convert Pydantic models to dicts for backward compatibility
-    image_operations_dicts = [op.model_dump() for op in request.imageOperations]
-    story.update_from_image_operations(image_operations_dicts)
+    story.update_from_image_operations([op.model_dump() for op in request.imageOperations])
+    db.commit()
     return story.to_story_details_response()
 
 
-@router.post("/uploadImage", response_model=StoryDetailsResponse, operation_id="uploadImage")
-async def upload_image(
-        request: UploadImageRequest
-):
-    user = get_user_session(request.userId)
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    story = user.get_story(request.storyId)
+@router.post("/uploadImage", response_model=StoryDetailsResponse)
+async def upload_image(request: UploadImageRequest, db: Session = Depends(get_db)):
+    story = db.query(Story).filter(Story.storyId == request.storyId, Story.userId == request.userId).first()
     if not story:
         raise HTTPException(status_code=404, detail="Story not found")
     story.upload_image(request.imageFile)
+    db.commit()
     return story.to_story_details_response()

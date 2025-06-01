@@ -48,7 +48,7 @@ cat > backend/app/config.py << 'EOF'
 from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
-    PROJECT_NAME: str = "Hackathon FastAPI Backend"
+    PROJECT_NAME: str = "HCA FastAPI Backend"
     PROJECT_DESCRIPTION: str = "A cross-platform FastAPI backend with live reload capability"
     VERSION: str = "0.1.0"
     API_PREFIX: str = "/api"
@@ -183,13 +183,13 @@ services:
       - .:/app
     command: uvicorn app.main:app --host 0.0.0.0 --port 8080 --reload
     environment:
-      - PROJECT_NAME=Hackathon FastAPI Backend
+      - PROJECT_NAME=HCA FastAPI Backend
       - VERSION=0.1.0
 EOF
 
 # Create README.md
 cat > backend/README.md << 'EOF'
-# FastAPI Backend for Hackathon Project
+# FastAPI Backend for HCA Project
 
 This is a cross-platform FastAPI backend that can be easily set up on Windows, macOS, and Linux. The API is accessible on localhost:8080 and supports live code refresh during development.
 
