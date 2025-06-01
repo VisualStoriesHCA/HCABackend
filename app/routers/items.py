@@ -109,7 +109,7 @@ async def get_user_stories(userId: str = Query(...),
                            db: Session = Depends(get_db)
                            ):
     stories = db.query(Story).filter(Story.userId == userId).limit(maxEntries).all()
-    return {"stories": [story.to_story_basic_information() for story in stories]}
+    return {"stories": reversed([story.to_story_basic_information() for story in stories])}
 
 
 @router.get("/getStoryById", response_model=StoryDetailsResponse)

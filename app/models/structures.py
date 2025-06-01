@@ -32,7 +32,7 @@ class Operation(Enum):
 
 
 class ImageOperation:
-    def __init__(self, operation: Operation, image_id: str, canvas_data: str, alt: str = None):
+    def __init__(self, operation: Operation, image_id: str = None, canvas_data: str = None, alt: str = None):
         self.operation = operation
         self.image_id = image_id
         self.canvas_data = canvas_data
@@ -83,7 +83,7 @@ class Story(Base):
             "storyName": self.name,
             "lastEdited": self.lastEdited,
             "storyText": self.text,
-            "storyImages": [image.to_dict() for image in self.images]
+            "storyImages": reversed([image.to_dict() for image in self.images])
         }
 
     def to_story_basic_information(self):
@@ -99,7 +99,7 @@ class Story(Base):
             "storyId": self.storyId,
             "storyName": self.name,
             "storyText": self.text,
-            "storyImages": [image.to_dict() for image in self.images]
+            "storyImages": reversed([image.to_dict() for image in self.images])
         }
 
     def set_text(self, updated_text: str):
