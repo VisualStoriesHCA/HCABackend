@@ -4,6 +4,8 @@ import re
 from datetime import datetime, timezone
 from enum import Enum
 from typing import List, Dict
+from PIL import Image as PIL_Image
+from io import BytesIO
 
 from sqlalchemy import Integer, select, update
 from sqlalchemy import create_engine, Column, String, DateTime, ForeignKey, Enum as SqlEnum, Text
@@ -40,10 +42,18 @@ class ImageOperation:
 
     @staticmethod
     def parse_image_operation(image_operation_dict: dict) -> "ImageOperation":
-        image_operation = ImageOperation(operation=Operation.parse_operation(image_operation_dict["type"]),
-                                         image_id=image_operation_dict["imageId"],
-                                         canvas_data=image_operation_dict["canvasData"],
-                                         alt=image_operation_dict["alt"])
+        operation = Operation.parse_operation(image_operation_dict["type"])
+        image_operation = ImageOperation(operation)
+        match operation:
+            case Operation.NO_CHANGE:
+                image_operation.image_id = image_operation_dict["imageId"]
+            case Operation.SKETCH_FROM_SCRATCH:
+                image_operation.canvas_data= image_operation_dict["canvasData"]
+            case Operation.SKETCH_ON_IMAGE:
+                image_operation.image_id = image_operation_dict["imageId"]
+                image_operation.canvas_data = image_operation_dict["canvasData"]
+            case _ :
+                raise Exception(f"Unknown operation {operation}")
         return image_operation
 
 
@@ -116,6 +126,7 @@ class Story(Base):
 
     def update_from_image_operations(self, image_operations: List[Dict]):
         operations = [ImageOperation.parse_image_operation(op) for op in image_operations]
+        self.execute_image_operations(operations)
         self.set_text("new text")  # Placeholder logic
 
     def set_story_name(self, story_name: str):
@@ -144,6 +155,42 @@ class Story(Base):
 
         self.images.append(new_image)
         self.lastEdited = datetime.now(timezone.utc)
+
+    def execute_image_operation(self, image_operation: ImageOperation):
+        match image_operation.operation:
+            case Operation.NO_CHANGE:
+                pass
+            case Operation.SKETCH_FROM_SCRATCH:
+                self.upload_image(image_operation.canvas_data)
+            case Operation.SKETCH_ON_IMAGE:
+                base_image_path = f"/etc/images/{self.userId}/{self.storyId}/{image_operation.image_id}.png"
+                base_image = PIL_Image.open(base_image_path).convert("RGBA")
+
+                match = re.match(r"data:image/(?P<ext>\w+);base64,(?P<data>.+)", image_operation.canvas_data)
+                if not match:
+                    raise ValueError("Invalid image binary format")
+                base64_data = match.group("data")
+
+                overlay_bytes = base64.b64decode(base64_data)
+                overlay_image = PIL_Image.open(BytesIO(overlay_bytes)).convert("RGBA")
+                base_width, base_height = base_image.size
+                overlay_width, overlay_height = overlay_image.size
+                x = (base_width - overlay_width) // 2
+                y = (base_height - overlay_height) // 2
+                base_image.paste(overlay_image, (x, y), overlay_image)
+                buffered = BytesIO()
+                base_image.save(buffered, format="PNG")
+                new_base64 = base64.b64encode(buffered.getvalue()).decode("utf-8")
+                data_uri = f"data:image/png;base64,{new_base64}"
+                self.upload_image(data_uri)
+            case _:
+                raise Exception(f"Unknown operation {image_operation.operation}")
+
+
+    def execute_image_operations(self, image_operations: List[ImageOperation]):
+        for image_operation in image_operations:
+            self.execute_image_operation(image_operation)
+
 
 
 class User(Base):
