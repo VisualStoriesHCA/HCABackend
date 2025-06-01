@@ -124,7 +124,7 @@ class Story(Base):
 
     def upload_image(self, image_binary: str):
         self.image_counter +=1
-        image_id = f"img_{self.image_counter}"
+        image_id = f"img_{self.storyId}_{self.image_counter}"
         dir_path = f"/etc/images/{self.userId}/{self.storyId}"
         os.makedirs(dir_path, exist_ok=True)
 
@@ -168,7 +168,7 @@ class User(Base):
 
     def create_story(self, story_name: str) -> str:
         self.story_counter += 1
-        storyId = f"s_{self.story_counter}"
+        storyId = f"s_{self.userId}_{self.story_counter}"
         story = Story(storyId=storyId, name=story_name, userId=self.userId)
         return story
 
