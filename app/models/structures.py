@@ -173,6 +173,14 @@ class Story(Base):
 
                 overlay_bytes = base64.b64decode(base64_data)
                 overlay_image = PIL_Image.open(BytesIO(overlay_bytes)).convert("RGBA")
+                overlay_data = overlay_image.getdata()
+                new_data = []
+                for r, g, b, a in overlay_data:
+                    if r > 200 and g < 100 and b < 100:
+                        new_data.append((255, 255, 255, a))  # red → white
+                    else:
+                        new_data.append((r, g, b, a))
+                overlay_image.putdata(new_data)
                 base_width, base_height = base_image.size
                 overlay_width, overlay_height = overlay_image.size
                 x = (base_width - overlay_width) // 2
