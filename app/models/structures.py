@@ -3,10 +3,10 @@ import os
 import re
 from datetime import datetime, timezone
 from enum import Enum
-from typing import List, Dict
-from PIL import Image as PIL_Image
 from io import BytesIO
+from typing import List, Dict
 
+from PIL import Image as PIL_Image
 from sqlalchemy import Integer, select, update
 from sqlalchemy import create_engine, Column, String, DateTime, ForeignKey, Enum as SqlEnum, Text
 from sqlalchemy.ext.declarative import declarative_base
@@ -127,7 +127,6 @@ class Story(Base):
     def update_from_image_operations(self, image_operations: List[Dict]):
         operations = [ImageOperation.parse_image_operation(op) for op in image_operations]
         self.execute_image_operations(operations)
-        self.set_text("new text")  # Placeholder logic
 
     def set_story_name(self, story_name: str):
         self.name = story_name
@@ -159,7 +158,8 @@ class Story(Base):
     def execute_image_operation(self, image_operation: ImageOperation):
         match image_operation.operation:
             case Operation.NO_CHANGE:
-                pass
+                new_text = self.generate_no_change_text_string()
+                self.set_text(new_text)
             case Operation.SKETCH_FROM_SCRATCH:
                 self.upload_image(image_operation.canvas_data)
             case Operation.SKETCH_ON_IMAGE:
@@ -199,6 +199,12 @@ class Story(Base):
         for image_operation in image_operations:
             self.execute_image_operation(image_operation)
 
+    def generate_no_change_text_string(self):
+        from openai import OpenAI
+        client = OpenAI(api_key=os.environ["OPENAI_API_TOKEN"])
+        image_path = f"/etc/images/{self.userId}/{self.storyId}/{self.images[-1].imageId}.png"
+        from ..models.openai_client import image_to_story
+        return image_to_story(client, image_path)
 
 
 class User(Base):
