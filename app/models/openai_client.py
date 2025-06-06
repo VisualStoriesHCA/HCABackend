@@ -72,7 +72,7 @@ def show_response_image(image_response):
 
 
 def modify_image(client, image_path):
-    prompt = """Generate from this sketch a story. try to seperate the frames with the arrows and do not change the number of frames"""
+    prompt = "Generate from this sketch a story. try to seperate the frames with the arrows and do not change the number of frames. draw everything in a cartoony style."
 
     response = client.images.edit(
         model="gpt-image-1",
