@@ -162,6 +162,11 @@ class Story(Base):
                 self.set_text(new_text)
             case Operation.SKETCH_FROM_SCRATCH:
                 self.upload_image(image_operation.canvas_data)
+                base64_image = self.generate_image_from_sketch_only(image_operation.canvas_data)
+                self.upload_image(base64_image)
+                self.set_text(base64_image)
+                new_text = self.generate_no_change_text_string()
+                self.set_text(new_text)
             case Operation.SKETCH_ON_IMAGE:
                 base_image_path = f"/etc/images/{self.userId}/{self.storyId}/{image_operation.image_id}.png"
                 base_image = PIL_Image.open(base_image_path).convert("RGBA")
@@ -205,6 +210,13 @@ class Story(Base):
         image_path = f"/etc/images/{self.userId}/{self.storyId}/{self.images[-1].imageId}.png"
         from ..models.openai_client import image_to_story
         return image_to_story(client, image_path)
+
+    def generate_image_from_sketch_only(self, base64_canvas_data) -> str:
+        from openai import OpenAI
+        client = OpenAI(api_key=os.environ["OPENAI_API_TOKEN"])
+        from ..models.openai_client import modify_image
+        image_path = f"/etc/images/{self.userId}/{self.storyId}/{self.images[-1].imageId}.png"
+        return modify_image(client, image_path)
 
 
 class User(Base):

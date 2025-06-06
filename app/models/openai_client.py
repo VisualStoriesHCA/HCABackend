@@ -69,3 +69,21 @@ def show_response_image(image_response):
     response = requests.get(image_url)
     image = Image.open(BytesIO(response.content))
     display_img(image)
+
+
+def modify_image(client, image_path):
+    prompt = """Generate from this sketch a story. try to seperate the frames with the arrows and do not change the number of frames"""
+
+    response = client.images.edit(
+        model="gpt-image-1",
+        image=[
+            open(image_path, "rb"),
+        ],
+        prompt=prompt,
+        n=1,
+        quality="high",
+        size="1024x1536",
+    )
+    image_url = f"data:image/png;base64,{response.data[0].b64_json}"
+
+    return image_url
