@@ -3,7 +3,6 @@ import os
 from io import BytesIO
 
 import requests
-# import matplotlib.pyplot as plt
 from PIL import Image
 from openai import OpenAI
 
@@ -46,33 +45,24 @@ def story_to_image(client, story):
     image_response = client.images.generate(
         model="dall-e-3",
         prompt=prompt,
-        size="1024x1024",
         quality="standard",
         n=1,
+        size="1024x1024",
     )
     show_response_image(image_response)
-
-
-def display_img(image):
-    plt.imshow(image)
-    plt.axis("off")
-    plt.show()
-
-
-def show_local_image(path):
-    img = Image.open(path)
-    display_img(img)
 
 
 def show_response_image(image_response):
     image_url = image_response.data[0].url
     response = requests.get(image_url)
     image = Image.open(BytesIO(response.content))
-    display_img(image)
+    return image
 
 
-def modify_image(client, image_path):
+def modify_image(client, image_path, text=None):
     prompt = "Generate from this sketch a story. try to seperate the frames with the arrows and do not change the number of frames. draw everything in a cartoony style."
+    if text:
+        prompt += f"this is the text, make only the necessary changes: {text} but do not write the text on the picture"
 
     response = client.images.edit(
         model="gpt-image-1",
@@ -82,7 +72,7 @@ def modify_image(client, image_path):
         prompt=prompt,
         n=1,
         quality="high",
-        size="1024x1536",
+        size="1024x1024",
     )
     image_url = f"data:image/png;base64,{response.data[0].b64_json}"
 

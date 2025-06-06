@@ -117,12 +117,8 @@ class Story(Base):
         self.lastEdited = datetime.now(timezone.utc)
 
     def update_images_by_text(self):
-        # placeholder: implement your actual logic here
-        pass
-
-    def update_text_by_images(self):
-        # placeholder: implement your actual logic here
-        pass
+        base64_image = self.generate_image_from_sketch_only(self.text)
+        self.upload_image(base64_image)
 
     def update_from_image_operations(self, image_operations: List[Dict]):
         operations = [ImageOperation.parse_image_operation(op) for op in image_operations]
@@ -162,7 +158,7 @@ class Story(Base):
                 self.set_text(new_text)
             case Operation.SKETCH_FROM_SCRATCH:
                 self.upload_image(image_operation.canvas_data)
-                base64_image = self.generate_image_from_sketch_only(image_operation.canvas_data)
+                base64_image = self.generate_image_from_sketch_only()
                 self.upload_image(base64_image)
                 new_text = self.generate_no_change_text_string()
                 self.set_text(new_text)
@@ -214,12 +210,12 @@ class Story(Base):
         from ..models.openai_client import image_to_story
         return image_to_story(client, image_path)
 
-    def generate_image_from_sketch_only(self, base64_canvas_data) -> str:
+    def generate_image_from_sketch_only(self, text=None) -> str:
         from openai import OpenAI
         client = OpenAI(api_key=os.environ["OPENAI_API_TOKEN"])
         from ..models.openai_client import modify_image
         image_path = f"/etc/images/{self.userId}/{self.storyId}/{self.images[-1].imageId}.png"
-        return modify_image(client, image_path)
+        return modify_image(client, image_path, text)
 
 
 class User(Base):
