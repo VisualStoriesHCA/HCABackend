@@ -191,7 +191,7 @@ class Story(Base):
                 new_base64 = base64.b64encode(buffered.getvalue()).decode("utf-8")
                 data_uri = f"data:image/png;base64,{new_base64}"
                 self.upload_image(data_uri)
-                base64_image = self.generate_image_from_sketch_only(data_uri)
+                base64_image = self.generate_image_from_sketch_only()
                 self.upload_image(base64_image)
                 new_text = self.generate_no_change_text_string()
                 self.set_text(new_text)
