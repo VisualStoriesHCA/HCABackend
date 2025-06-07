@@ -47,7 +47,7 @@ def story_to_image(client, story):
         prompt=prompt,
         quality="standard",
         n=1,
-        size="1024x1024",
+        size="auto",
     )
     show_response_image(image_response)
 
@@ -72,7 +72,7 @@ def modify_image(client, image_path, text=None):
         prompt=prompt,
         n=1,
         quality="high",
-        size="1024x1024",
+        size="auto",
     )
     image_url = f"data:image/png;base64,{response.data[0].b64_json}"
 
