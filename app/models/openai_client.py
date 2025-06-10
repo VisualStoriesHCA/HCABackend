@@ -42,14 +42,16 @@ def image_to_story(client, path):
 
 def story_to_image(client, story):
     prompt = "Please draw a sketch for the provided story. The sketch should contain several scenes going one after another. Keep it in a simple schematic way. The story is:\n" + story
-    image_response = client.images.generate(
-        model="dall-e-3",
+    response = client.images.generate(
+        model="gpt-image-1",
         prompt=prompt,
-        quality="standard",
+        #quality="high",
         n=1,
         size="auto",
     )
-    show_response_image(image_response)
+    image_url = f"data:image/png;base64,{response.data[0].b64_json}"
+
+    return image_url
 
 
 def show_response_image(image_response):

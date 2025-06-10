@@ -12,6 +12,7 @@ from sqlalchemy import create_engine, Column, String, DateTime, ForeignKey, Enum
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, sessionmaker
 
+from .openai_client import story_to_image
 from ..models.db import Base
 
 
@@ -214,9 +215,11 @@ class Story(Base):
         from openai import OpenAI
         client = OpenAI(api_key=os.environ["OPENAI_API_TOKEN"])
         from ..models.openai_client import modify_image
-        image_path = f"/etc/images/{self.userId}/{self.storyId}/{self.images[-1].imageId}.png"
-        return modify_image(client, image_path, text)
-
+        try:
+            image_path = f"/etc/images/{self.userId}/{self.storyId}/{self.images[-1].imageId}.png"
+            return modify_image(client, image_path, text)
+        except:
+            return story_to_image(client, text)
 
 class User(Base):
     __tablename__ = 'users'
