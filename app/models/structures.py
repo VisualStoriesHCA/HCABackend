@@ -3,10 +3,10 @@ import os
 import re
 from datetime import datetime, timezone
 from enum import Enum
-from typing import List, Dict
-from PIL import Image as PIL_Image
 from io import BytesIO
+from typing import List, Dict
 
+from PIL import Image as PIL_Image
 from sqlalchemy import Integer, select, update
 from sqlalchemy import create_engine, Column, String, DateTime, ForeignKey, Enum as SqlEnum, Text
 from sqlalchemy.ext.declarative import declarative_base
@@ -117,17 +117,12 @@ class Story(Base):
         self.lastEdited = datetime.now(timezone.utc)
 
     def update_images_by_text(self):
-        # placeholder: implement your actual logic here
-        pass
-
-    def update_text_by_images(self):
-        # placeholder: implement your actual logic here
-        pass
+        base64_image = self.generate_image_from_sketch_only(self.text)
+        self.upload_image(base64_image)
 
     def update_from_image_operations(self, image_operations: List[Dict]):
         operations = [ImageOperation.parse_image_operation(op) for op in image_operations]
         self.execute_image_operations(operations)
-        self.set_text("new text")  # Placeholder logic
 
     def set_story_name(self, story_name: str):
         self.name = story_name
@@ -159,9 +154,14 @@ class Story(Base):
     def execute_image_operation(self, image_operation: ImageOperation):
         match image_operation.operation:
             case Operation.NO_CHANGE:
-                pass
+                new_text = self.generate_no_change_text_string()
+                self.set_text(new_text)
             case Operation.SKETCH_FROM_SCRATCH:
                 self.upload_image(image_operation.canvas_data)
+                base64_image = self.generate_image_from_sketch_only()
+                self.upload_image(base64_image)
+                new_text = self.generate_no_change_text_string()
+                self.set_text(new_text)
             case Operation.SKETCH_ON_IMAGE:
                 base_image_path = f"/etc/images/{self.userId}/{self.storyId}/{image_operation.image_id}.png"
                 base_image = PIL_Image.open(base_image_path).convert("RGBA")
@@ -191,6 +191,10 @@ class Story(Base):
                 new_base64 = base64.b64encode(buffered.getvalue()).decode("utf-8")
                 data_uri = f"data:image/png;base64,{new_base64}"
                 self.upload_image(data_uri)
+                base64_image = self.generate_image_from_sketch_only()
+                self.upload_image(base64_image)
+                new_text = self.generate_no_change_text_string()
+                self.set_text(new_text)
             case _:
                 raise Exception(f"Unknown operation {image_operation.operation}")
 
@@ -199,6 +203,19 @@ class Story(Base):
         for image_operation in image_operations:
             self.execute_image_operation(image_operation)
 
+    def generate_no_change_text_string(self):
+        from openai import OpenAI
+        client = OpenAI(api_key=os.environ["OPENAI_API_TOKEN"])
+        image_path = f"/etc/images/{self.userId}/{self.storyId}/{self.images[-1].imageId}.png"
+        from ..models.openai_client import image_to_story
+        return image_to_story(client, image_path)
+
+    def generate_image_from_sketch_only(self, text=None) -> str:
+        from openai import OpenAI
+        client = OpenAI(api_key=os.environ["OPENAI_API_TOKEN"])
+        from ..models.openai_client import modify_image
+        image_path = f"/etc/images/{self.userId}/{self.storyId}/{self.images[-1].imageId}.png"
+        return modify_image(client, image_path, text)
 
 
 class User(Base):
