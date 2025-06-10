@@ -120,14 +120,25 @@ class Story(Base):
     def update_images_by_text(self):
         base64_image = self.generate_image_from_sketch_only(self.text)
         self.upload_image(base64_image)
+        self.update_story_name()
 
     def update_from_image_operations(self, image_operations: List[Dict]):
         operations = [ImageOperation.parse_image_operation(op) for op in image_operations]
         self.execute_image_operations(operations)
+        self.update_story_name()
 
     def set_story_name(self, story_name: str):
         self.name = story_name
         self.lastEdited = datetime.now(timezone.utc)
+
+    def update_story_name(self):
+        if self.name == "New Story":
+            from openai import OpenAI
+            client = OpenAI(api_key=os.environ["OPENAI_API_TOKEN"])
+            image_path = f"/etc/images/{self.userId}/{self.storyId}/{self.images[-1].imageId}.png"
+            from ..models.openai_client import image_to_title
+            story_title = image_to_title(client, image_path)
+            self.name = story_title
 
     def upload_image(self, image_binary: str):
         self.image_counter +=1
