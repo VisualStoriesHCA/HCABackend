@@ -16,3 +16,4 @@ set OPENAI_API_TOKEN="my_token"
 docker  run -it -p 8080:8080 -e OPENAI_API_TOKEN=%OPENAI_API_TOKEN% -v ./app:/app/app -v  ./data:/app/data -v ./images:/etc/images backend
 ```
 
+update test
