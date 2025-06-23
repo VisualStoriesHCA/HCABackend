@@ -1,24 +1,32 @@
-import difflib
+import re
+
+from diff_match_patch import diff_match_patch
+
+
 def generate_user_id(user_name: str) -> str:
     return "id_" + user_name
 
 
-def highlight_additions(old_text, new_text: str) -> str:
-    old_words = old_text.split()
-    new_words = new_text.split()
+def tokenize(text):
+    return re.findall(r'\s+|\w+|[^\w\s]', text, re.UNICODE)
 
-    matcher = difflib.SequenceMatcher(None, old_words, new_words)
+
+def highlight_additions(old_text, new_text):
+    dmp = diff_match_patch()
+    diffs = dmp.diff_main(old_text, new_text)
+    dmp.diff_cleanupSemantic(diffs)
+
     result = []
-
-    for opcode, i1, i2, j1, j2 in matcher.get_opcodes():
-        if opcode == 'equal':
-            result.extend(new_words[j1:j2])
-        elif opcode in ('insert', 'replace'):
-            for word in new_words[j1:j2]:
-                result.append(f"<mark>{word}</mark>")
-        # 'delete' ignored
-
-    return ' '.join(result)
+    for op, data in diffs:
+        if op == dmp.DIFF_EQUAL:
+            result.append(data)
+        elif op == dmp.DIFF_INSERT:
+            for char in data:
+                if char.isspace():
+                    result.append(char)
+                else:
+                    result.append(f"<mark>{char}</mark>")
+    return ''.join(result)
 
 
 def get_raw_text(text: str) -> str:
