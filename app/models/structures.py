@@ -7,6 +7,7 @@ from io import BytesIO
 from typing import List, Dict
 
 from PIL import Image as PIL_Image
+from openai import AsyncOpenAI
 from sqlalchemy import Integer, select, update
 from sqlalchemy import create_engine, Column, String, DateTime, ForeignKey, Enum as SqlEnum, Text
 from sqlalchemy.ext.declarative import declarative_base
@@ -84,7 +85,7 @@ class Story(Base):
     userId = Column(String, ForeignKey('users.userId'))
     image_counter = Column(Integer, default=0)
 
-    images = relationship("Image", backref="story", cascade="all, delete-orphan")
+    images = relationship("Image", backref="story", cascade="all, delete-orphan", lazy="selectin")
 
     # --- Methods ---
 
@@ -133,32 +134,31 @@ class Story(Base):
         self.text = updated_text
         self.lastEdited = datetime.now(timezone.utc)
 
-    def update_images_by_text(self, new_text: str):
+    async def update_images_by_text(self, new_text: str):
         self.set_raw_text(new_text)
         raw_text = self.get_raw_text()
-        base64_image = self.generate_image_from_sketch_only(raw_text)
-        self.upload_image(base64_image)
-        self.update_story_name()
+        base64_image = await self.generate_image_from_sketch_only(raw_text)
+        await self.upload_image(base64_image)
+        await self.update_story_name()
 
-    def update_from_image_operations(self, image_operations: List[Dict]):
+    async def update_from_image_operations(self, image_operations: List[Dict]):
         operations = [ImageOperation.parse_image_operation(op) for op in image_operations]
-        self.execute_image_operations(operations)
-        self.update_story_name()
+        await self.execute_image_operations(operations)
+        await self.update_story_name()
 
     def set_story_name(self, story_name: str):
         self.name = story_name
         self.lastEdited = datetime.now(timezone.utc)
 
-    def update_story_name(self):
+    async def update_story_name(self):
         if self.name == "New Story":
-            from openai import OpenAI
-            client = OpenAI(api_key=os.environ["OPENAI_API_TOKEN"])
+            client = AsyncOpenAI(api_key=os.environ["OPENAI_API_TOKEN"])
             image_path = f"/etc/images/{self.userId}/{self.storyId}/{self.images[-1].imageId}.png"
             from ..models.openai_client import image_to_title
-            story_title = image_to_title(client, image_path)
+            story_title = await image_to_title(client, image_path)
             self.name = story_title
 
-    def upload_image(self, image_binary: str):
+    async def upload_image(self, image_binary: str):
         self.image_counter +=1
         image_id = f"img_{self.storyId}_{self.image_counter}"
         dir_path = f"/etc/images/{self.userId}/{self.storyId}"
@@ -181,16 +181,16 @@ class Story(Base):
         self.images.append(new_image)
         self.lastEdited = datetime.now(timezone.utc)
 
-    def execute_image_operation(self, image_operation: ImageOperation):
+    async def execute_image_operation(self, image_operation: ImageOperation):
         match image_operation.operation:
             case Operation.NO_CHANGE:
-                new_text = self.generate_no_change_text_string()
+                new_text = await self.generate_no_change_text_string()
                 self.set_formatted_text(new_text)
             case Operation.SKETCH_FROM_SCRATCH:
-                self.upload_image(image_operation.canvas_data)
-                base64_image = self.generate_image_from_sketch_only("from scratch and up to you.")
-                self.upload_image(base64_image)
-                new_text = self.generate_no_change_text_string()
+                await self.upload_image(image_operation.canvas_data)
+                base64_image = await self.generate_image_from_sketch_only("from scratch and up to you.")
+                await self.upload_image(base64_image)
+                new_text = await self.generate_no_change_text_string()
                 self.set_formatted_text(new_text)
             case Operation.SKETCH_ON_IMAGE:
                 base_image_path = f"/etc/images/{self.userId}/{self.storyId}/{image_operation.image_id}.png"
@@ -220,35 +220,32 @@ class Story(Base):
                 base_image.save(buffered, format="PNG")
                 new_base64 = base64.b64encode(buffered.getvalue()).decode("utf-8")
                 data_uri = f"data:image/png;base64,{new_base64}"
-                self.upload_image(data_uri)
-                base64_image = self.generate_image_from_sketch_only()
-                self.upload_image(base64_image)
-                new_text = self.generate_no_change_text_string()
+                await self.upload_image(data_uri)
+                base64_image = await self.generate_image_from_sketch_only()
+                await self.upload_image(base64_image)
+                new_text = await self.generate_no_change_text_string()
                 self.set_formatted_text(new_text)
             case _:
                 raise Exception(f"Unknown operation {image_operation.operation}")
 
-
-    def execute_image_operations(self, image_operations: List[ImageOperation]):
+    async def execute_image_operations(self, image_operations: List[ImageOperation]):
         for image_operation in image_operations:
-            self.execute_image_operation(image_operation)
+            await self.execute_image_operation(image_operation)
 
-    def generate_no_change_text_string(self):
-        from openai import OpenAI
-        client = OpenAI(api_key=os.environ["OPENAI_API_TOKEN"])
+    async def generate_no_change_text_string(self):
+        client = AsyncOpenAI(api_key=os.environ["OPENAI_API_TOKEN"])
         image_path = f"/etc/images/{self.userId}/{self.storyId}/{self.images[-1].imageId}.png"
         from ..models.openai_client import image_to_story
-        return image_to_story(client, image_path)
+        return await image_to_story(client, image_path)
 
-    def generate_image_from_sketch_only(self, text="") -> str:
-        from openai import OpenAI
-        client = OpenAI(api_key=os.environ["OPENAI_API_TOKEN"])
+    async def generate_image_from_sketch_only(self, text="") -> str:
+        client = AsyncOpenAI(api_key=os.environ["OPENAI_API_TOKEN"])
         from ..models.openai_client import modify_image
         try:
             image_path = f"/etc/images/{self.userId}/{self.storyId}/{self.images[-1].imageId}.png"
-            return modify_image(client, image_path, text)
+            return await modify_image(client, image_path, text)
         except:
-            return story_to_image(client, text)
+            return await story_to_image(client, text)
 
 class User(Base):
     __tablename__ = 'users'
@@ -257,7 +254,7 @@ class User(Base):
     userName = Column(String)
     accountCreated = Column(String, default=lambda: datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"))
     story_counter = Column(Integer, default=0)
-    stories = relationship("Story", backref="user", cascade="all, delete-orphan")
+    stories = relationship("Story", backref="user", cascade="all, delete-orphan", lazy="selectin")
 
     def __str__(self):
         return f"Id: {self.userId}\nName: {self.name}\nUsername: {self.userName}\nAccount Created: {self.accountCreated}"

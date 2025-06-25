@@ -9,7 +9,7 @@ from fastapi.responses import FileResponse
 from fastapi.responses import JSONResponse
 
 from .config import settings
-from .models.db import Base, engine
+from .models.db import init_models
 from .routers import items
 
 app = FastAPI(
@@ -32,8 +32,8 @@ app.include_router(items.router)
 
 
 @app.on_event("startup")
-def on_startup():
-    Base.metadata.create_all(bind=engine)
+async def on_startup():
+    await init_models()
 
 
 @app.get("/")
