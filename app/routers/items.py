@@ -125,8 +125,7 @@ async def update_images_by_text(request: UpdateImagesByTextRequest, db: Session 
     story = db.query(Story).filter(Story.storyId == request.storyId, Story.userId == request.userId).first()
     if not story:
         raise HTTPException(status_code=404, detail="Story not found")
-    story.text = request.updatedText
-    story.update_images_by_text()
+    story.update_images_by_text(request.updatedText)
     db.commit()
     return story.to_story_details_response()
 

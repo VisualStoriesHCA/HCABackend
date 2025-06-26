@@ -13,6 +13,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, sessionmaker
 
 from .openai_client import story_to_image
+from ..models import utils
 from ..models.db import Base
 
 
@@ -93,7 +94,7 @@ class Story(Base):
             "coverImage": self.CoverageImage,
             "storyName": self.name,
             "lastEdited": self.lastEdited,
-            "storyText": self.text,
+            "storyText": self.get_formatted_text(),
             "storyImages": reversed([image.to_dict() for image in self.images])
         }
 
@@ -109,16 +110,33 @@ class Story(Base):
         return {
             "storyId": self.storyId,
             "storyName": self.name,
-            "storyText": self.text,
+            "storyText": self.get_formatted_text(),
             "storyImages": reversed([image.to_dict() for image in self.images])
         }
 
-    def set_text(self, updated_text: str):
+    def get_raw_text(self) -> str:
+        return utils.get_raw_text(self.text)
+
+    def get_formatted_text(self) -> str:
+        return self.text
+
+    def set_raw_text(self, updated_text: str):
+        updated_text = utils.get_raw_text(updated_text)
         self.text = updated_text
         self.lastEdited = datetime.now(timezone.utc)
 
-    def update_images_by_text(self):
-        base64_image = self.generate_image_from_sketch_only(self.text)
+    def set_formatted_text(self, updated_text: str):
+        raw_text = self.get_raw_text()
+        updated_text = utils.get_raw_text(updated_text)
+        if raw_text:
+            updated_text = utils.highlight_additions(raw_text, updated_text)
+        self.text = updated_text
+        self.lastEdited = datetime.now(timezone.utc)
+
+    def update_images_by_text(self, new_text: str):
+        self.set_raw_text(new_text)
+        raw_text = self.get_raw_text()
+        base64_image = self.generate_image_from_sketch_only(raw_text)
         self.upload_image(base64_image)
         self.update_story_name()
 
@@ -167,13 +185,13 @@ class Story(Base):
         match image_operation.operation:
             case Operation.NO_CHANGE:
                 new_text = self.generate_no_change_text_string()
-                self.set_text(new_text)
+                self.set_formatted_text(new_text)
             case Operation.SKETCH_FROM_SCRATCH:
                 self.upload_image(image_operation.canvas_data)
                 base64_image = self.generate_image_from_sketch_only("from scratch and up to you.")
                 self.upload_image(base64_image)
                 new_text = self.generate_no_change_text_string()
-                self.set_text(new_text)
+                self.set_formatted_text(new_text)
             case Operation.SKETCH_ON_IMAGE:
                 base_image_path = f"/etc/images/{self.userId}/{self.storyId}/{image_operation.image_id}.png"
                 base_image = PIL_Image.open(base_image_path).convert("RGBA")
@@ -206,7 +224,7 @@ class Story(Base):
                 base64_image = self.generate_image_from_sketch_only()
                 self.upload_image(base64_image)
                 new_text = self.generate_no_change_text_string()
-                self.set_text(new_text)
+                self.set_formatted_text(new_text)
             case _:
                 raise Exception(f"Unknown operation {image_operation.operation}")
 
