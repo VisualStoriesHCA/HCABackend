@@ -83,13 +83,9 @@ async def modify_image(client, image_path, text=None):
     prompt = "Generate from this sketch a story. try to seperate the frames with the arrows and do not change the number of frames. draw everything in a cartoony style. please do not change the number of frames. and make the least number of changes possible"
     if text:
         prompt += f"this is the text, make only the necessary changes: {text} but do not write the text on the picture"
-
-    async with aiofiles.open(image_path, "rb") as f:
-        image_bytes = await f.read()
-
     response = await client.images.edit(
         model="gpt-image-1",
-        image=[image_bytes],
+        image=[open(image_path, "rb")],
         prompt=prompt,
         n=1,
         quality="high",

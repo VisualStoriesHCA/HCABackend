@@ -1,4 +1,5 @@
 import base64
+import logging
 import os
 import re
 from datetime import datetime, timezone
@@ -13,10 +14,10 @@ from sqlalchemy import create_engine, Column, String, DateTime, ForeignKey, Enum
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, sessionmaker
 
-from .openai_client import story_to_image
 from ..models import utils
 from ..models.db import Base
 
+logger = logging.getLogger(__name__)
 
 class Operation(Enum):
     NO_CHANGE = 1
@@ -136,6 +137,7 @@ class Story(Base):
 
     async def update_images_by_text(self, new_text: str):
         self.set_raw_text(new_text)
+        logger.debug(f"Story text: {self.text}")
         raw_text = self.get_raw_text()
         base64_image = await self.generate_image_from_sketch_only(raw_text)
         await self.upload_image(base64_image)
@@ -220,6 +222,8 @@ class Story(Base):
                 base_image.save(buffered, format="PNG")
                 new_base64 = base64.b64encode(buffered.getvalue()).decode("utf-8")
                 data_uri = f"data:image/png;base64,{new_base64}"
+                with open("/app/data/binary.txt", "w") as text_file:
+                    text_file.write(data_uri)
                 await self.upload_image(data_uri)
                 base64_image = await self.generate_image_from_sketch_only()
                 await self.upload_image(base64_image)
@@ -240,7 +244,7 @@ class Story(Base):
 
     async def generate_image_from_sketch_only(self, text="") -> str:
         client = AsyncOpenAI(api_key=os.environ["OPENAI_API_TOKEN"])
-        from ..models.openai_client import modify_image
+        from ..models.openai_client import modify_image, story_to_image
         try:
             image_path = f"/etc/images/{self.userId}/{self.storyId}/{self.images[-1].imageId}.png"
             return await modify_image(client, image_path, text)

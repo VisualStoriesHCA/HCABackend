@@ -1,5 +1,7 @@
 # app/routers/items.py
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -16,6 +18,7 @@ from ..routers.schemas import (
     UpdateTextByImagesRequest, UploadImageRequest
 )
 
+logger = logging.getLogger(__name__)
 router = APIRouter(
     prefix="/items",
     tags=["items"],
@@ -130,6 +133,7 @@ async def update_images_by_text(request: UpdateImagesByTextRequest, db: AsyncSes
     story = result.scalar_one_or_none()
     if not story:
         raise HTTPException(status_code=404, detail="Story not found")
+    logger.debug("Calling update_images_by_text")
     await story.update_images_by_text(request.updatedText)
     await db.commit()
     await db.refresh(story)

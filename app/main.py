@@ -1,4 +1,5 @@
 # app/main.py
+import logging
 import os
 
 from fastapi import FastAPI
@@ -8,6 +9,10 @@ from fastapi.requests import Request
 from fastapi.responses import FileResponse
 from fastapi.responses import JSONResponse
 
+logging.basicConfig(
+    level=logging.DEBUG,
+    format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
+)
 from .config import settings
 from .models.db import init_models
 from .routers import items
