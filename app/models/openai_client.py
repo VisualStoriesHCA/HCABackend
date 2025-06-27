@@ -1,10 +1,6 @@
 import base64
-import os
 
 import aiofiles
-from openai import OpenAI
-
-client = OpenAI(api_key=os.environ["OPENAI_API_TOKEN"])
 
 
 async def encode_image_to_base64(path):
