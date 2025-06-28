@@ -15,7 +15,7 @@ from ..routers.schemas import (
     SetStoryNameRequest, DeleteStoryRequest,
     UserStoriesResponse, StoryBasicInfoResponse,
     StoryDetailsResponse, UpdateImagesByTextRequest,
-    UpdateTextByImagesRequest, UploadImageRequest
+    UpdateTextByImagesRequest, UploadImageRequest, StoryState
 )
 
 logger = logging.getLogger(__name__)
@@ -134,9 +134,11 @@ async def update_images_by_text(request: UpdateImagesByTextRequest, db: AsyncSes
     if not story:
         raise HTTPException(status_code=404, detail="Story not found")
     logger.debug("Calling update_images_by_text")
+    story.update_state(StoryState.pending)
     await story.update_images_by_text(request.updatedText)
     await db.commit()
     await db.refresh(story)
+    story.update_state(StoryState.completed)
     return story.to_story_details_response()
 
 
@@ -146,9 +148,11 @@ async def update_text_by_images(request: UpdateTextByImagesRequest, db: AsyncSes
     story = result.scalar_one_or_none()
     if not story:
         raise HTTPException(status_code=404, detail="Story not found")
+    story.update_state(StoryState.pending)
     await story.update_from_image_operations([op.model_dump() for op in request.imageOperations])
     await db.commit()
     await db.refresh(story)
+    story.update_state(StoryState.completed)
     return story.to_story_details_response()
 
 
@@ -158,7 +162,9 @@ async def upload_image(request: UploadImageRequest, db: AsyncSession = Depends(g
     story = result.scalar_one_or_none()
     if not story:
         raise HTTPException(status_code=404, detail="Story not found")
+    story.update_state(StoryState.pending)
     story.upload_image(request.imageFile)
     await db.commit()
     await db.refresh(story)
+    story.update_state(StoryState.completed)
     return story.to_story_details_response()
