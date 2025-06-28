@@ -113,3 +113,32 @@ class StoryDetailsResponse(BaseModel):
 
 class UserStoriesResponse(BaseModel):
     stories: List[StoryBasicInfoResponse]
+
+
+class ImageModelResponse(BaseModel):
+    id: int
+    name: str
+    description: str
+    disabled: bool
+
+
+class DrawingStyleResponse(BaseModel):
+    id: int
+    name: str
+    description: str
+    exampleImageUrl: str
+
+
+class ColorBlindOptionResponse(BaseModel):
+    id: int
+    name: str
+    description: str
+
+
+class AvailableOptionsResponse(BaseModel):
+    availableImageModels: List[ImageModelResponse]
+    defaultImageModelId: int
+    availableDrawingStyles: List[DrawingStyleResponse]
+    defaultDrawingStyleId: int
+    colorBlindOptions: List[ColorBlindOptionResponse]
+    defaultColorBlindModeId: int

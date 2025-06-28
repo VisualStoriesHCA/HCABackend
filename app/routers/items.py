@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
 from ..models.db import async_session
+from ..models.options import list_available_options
 from ..models.structures import User, Story
 from ..models.utils import generate_user_id
 from ..routers.schemas import (
@@ -15,7 +16,8 @@ from ..routers.schemas import (
     SetStoryNameRequest, DeleteStoryRequest,
     UserStoriesResponse, StoryBasicInfoResponse,
     StoryDetailsResponse, UpdateImagesByTextRequest,
-    UpdateTextByImagesRequest, UploadImageRequest, StoryState
+    UpdateTextByImagesRequest, UploadImageRequest,
+    StoryState, AvailableOptionsResponse
 )
 
 logger = logging.getLogger(__name__)
@@ -54,6 +56,11 @@ async def delete_user(request: DeleteUserRequest, db: AsyncSession = Depends(get
         raise HTTPException(status_code=404, detail="User not found")
     await db.delete(user)
     await db.commit()
+
+
+@router.get("/getAvailableOptions", response_model=AvailableOptionsResponse, operation_id="getAvailableOptions")
+async def get_available_options(db: AsyncSession = Depends(get_async_db)):
+    return list_available_options()
 
 
 @router.get("/getUserInformation", response_model=UserResponse)
