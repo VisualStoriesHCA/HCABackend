@@ -107,7 +107,7 @@ class StoryDetailsResponse(BaseModel):
     storyId: str
     storyName: str
     storyText: str
-    state: StoryState = Field(..., description="The state of the story, either 'pending' or 'completed'")
+    state: StoryState
     storyImages: List[ImageResponse]
 
 
