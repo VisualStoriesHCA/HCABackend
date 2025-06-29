@@ -1,20 +1,18 @@
 import base64
-import os
 
-from openai import OpenAI
-
-client = OpenAI(api_key=os.environ["OPENAI_API_TOKEN"])
+import aiofiles
 
 
-def encode_image_to_base64(path):
-    with open(path, "rb") as f:
-        return base64.b64encode(f.read()).decode("utf-8")
+async def encode_image_to_base64(path):
+    async with aiofiles.open(path, "rb") as f:
+        data = await f.read()
+    return base64.b64encode(data).decode("utf-8")
 
 
-def image_to_story(client, path):
-    base64_image = encode_image_to_base64(path)
+async def image_to_story(client, path):
+    base64_image = await encode_image_to_base64(path)
 
-    response = client.chat.completions.create(
+    response = await client.chat.completions.create(
         model="gpt-4o",
         messages=[
             {
@@ -37,10 +35,10 @@ def image_to_story(client, path):
     return response.choices[0].message.content
 
 
-def image_to_title(client, path):
-    base64_image = encode_image_to_base64(path)
+async def image_to_title(client, path):
+    base64_image = await encode_image_to_base64(path)
 
-    response = client.chat.completions.create(
+    response = await client.chat.completions.create(
         model="gpt-4o",
         messages=[
             {
@@ -63,9 +61,9 @@ def image_to_title(client, path):
     return response.choices[0].message.content
 
 
-def story_to_image(client, story):
+async def story_to_image(client, story):
     prompt = "Please draw a sketch for the provided story. The sketch should contain several scenes going one after another. Keep it in a simple schematic way. The story is:\n" + story
-    response = client.images.generate(
+    response = await client.images.generate(
         model="gpt-image-1",
         prompt=prompt,
         #quality="high",
@@ -77,16 +75,13 @@ def story_to_image(client, story):
     return image_url
 
 
-def modify_image(client, image_path, text=None):
+async def modify_image(client, image_path, text=None):
     prompt = "Generate from this sketch a story. try to seperate the frames with the arrows and do not change the number of frames. draw everything in a cartoony style. please do not change the number of frames. and make the least number of changes possible"
     if text:
         prompt += f"this is the text, make only the necessary changes: {text} but do not write the text on the picture"
-
-    response = client.images.edit(
+    response = await client.images.edit(
         model="gpt-image-1",
-        image=[
-            open(image_path, "rb"),
-        ],
+        image=[open(image_path, "rb")],
         prompt=prompt,
         n=1,
         quality="high",
