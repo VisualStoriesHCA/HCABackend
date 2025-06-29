@@ -31,7 +31,7 @@ async def get_async_db():
         yield session
 
 
-@router.post("/createNewUser", status_code=status.HTTP_201_CREATED, response_model=UserResponse)
+@router.post("/createNewUser", status_code=status.HTTP_201_CREATED, response_model=UserResponse, operation_id="createNewUser")
 async def create_new_user(request: CreateUserRequest, db: AsyncSession = Depends(get_async_db)):
     user_id = generate_user_id(request.userName)
     result = await db.execute(select(User).filter_by(userId=user_id))
@@ -46,7 +46,7 @@ async def create_new_user(request: CreateUserRequest, db: AsyncSession = Depends
     return UserResponse.from_orm(new_user)
 
 
-@router.delete("/deleteUser", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/deleteUser", status_code=status.HTTP_204_NO_CONTENT, operation_id="deleteUser")
 async def delete_user(request: DeleteUserRequest, db: AsyncSession = Depends(get_async_db)):
     result = await db.execute(select(User).filter_by(userId=request.userId))
     user = result.scalar_one_or_none()
@@ -56,7 +56,7 @@ async def delete_user(request: DeleteUserRequest, db: AsyncSession = Depends(get
     await db.commit()
 
 
-@router.get("/getUserInformation", response_model=UserResponse)
+@router.get("/getUserInformation", response_model=UserResponse, operation_id="getUserInformation")
 async def get_user_information(userId: str, db: AsyncSession = Depends(get_async_db)):
     result = await db.execute(select(User).filter_by(userId=userId))
     user = result.scalar_one_or_none()
@@ -65,7 +65,7 @@ async def get_user_information(userId: str, db: AsyncSession = Depends(get_async
     return UserResponse.from_orm(user)
 
 
-@router.get("/getUserInformationByUserName", response_model=UserResponse)
+@router.get("/getUserInformationByUserName", response_model=UserResponse, operation_id="getUserInformationByUserName")
 async def get_user_information_by_user_name(userName: str = Query(...), db: AsyncSession = Depends(get_async_db)):
     user_id = generate_user_id(userName)
     result = await db.execute(select(User).filter_by(userId=user_id))
@@ -75,7 +75,7 @@ async def get_user_information_by_user_name(userName: str = Query(...), db: Asyn
     return UserResponse.from_orm(user)
 
 
-@router.post("/createNewStory", response_model=StoryBasicInfoResponse)
+@router.post("/createNewStory", response_model=StoryBasicInfoResponse, operation_id="createNewStory")
 async def create_new_story(request: CreateNewStoryRequest, db: AsyncSession = Depends(get_async_db)):
     result = await db.execute(select(User).filter_by(userId=request.userId))
     user = result.scalar_one_or_none()
@@ -88,7 +88,7 @@ async def create_new_story(request: CreateNewStoryRequest, db: AsyncSession = De
     return story.to_story_basic_information()
 
 
-@router.post("/setStoryName", response_model=StoryBasicInfoResponse)
+@router.post("/setStoryName", response_model=StoryBasicInfoResponse, operation_id="setStoryName")
 async def set_story_name(request: SetStoryNameRequest, db: AsyncSession = Depends(get_async_db)):
     result = await db.execute(select(Story).filter_by(storyId=request.storyId))
     story = result.scalar_one_or_none()
@@ -100,7 +100,7 @@ async def set_story_name(request: SetStoryNameRequest, db: AsyncSession = Depend
     return story.to_story_basic_information()
 
 
-@router.delete("/deleteStory", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/deleteStory", status_code=status.HTTP_204_NO_CONTENT, operation_id="deleteStory")
 async def delete_story(request: DeleteStoryRequest, db: AsyncSession = Depends(get_async_db)):
     result = await db.execute(select(Story).filter_by(storyId=request.storyId))
     story = result.scalar_one_or_none()
@@ -118,7 +118,7 @@ async def get_user_stories(userId: str = Query(...), maxEntries: int = Query(50)
     return {"stories": list(reversed([story.to_story_basic_information() for story in stories]))}
 
 
-@router.get("/getStoryById", response_model=StoryDetailsResponse)
+@router.get("/getStoryById", response_model=StoryDetailsResponse, operation_id="getStoryById")
 async def get_story_by_id(userId: str, storyId: str, db: AsyncSession = Depends(get_async_db)):
     result = await db.execute(select(Story).filter_by(storyId=storyId, userId=userId))
     story = result.scalar_one_or_none()
@@ -127,7 +127,7 @@ async def get_story_by_id(userId: str, storyId: str, db: AsyncSession = Depends(
     return story.to_story_details_response()
 
 
-@router.post("/updateImagesByText", response_model=StoryDetailsResponse)
+@router.post("/updateImagesByText", response_model=StoryDetailsResponse, operation_id="updateImagesByText")
 async def update_images_by_text(request: UpdateImagesByTextRequest, db: AsyncSession = Depends(get_async_db)):
     result = await db.execute(select(Story).filter_by(storyId=request.storyId, userId=request.userId))
     story = result.scalar_one_or_none()
@@ -142,7 +142,7 @@ async def update_images_by_text(request: UpdateImagesByTextRequest, db: AsyncSes
     return story.to_story_details_response()
 
 
-@router.post("/updateTextByImages", response_model=StoryDetailsResponse)
+@router.post("/updateTextByImages", response_model=StoryDetailsResponse, operation_id="updateTextByImages")
 async def update_text_by_images(request: UpdateTextByImagesRequest, db: AsyncSession = Depends(get_async_db)):
     result = await db.execute(select(Story).filter_by(storyId=request.storyId, userId=request.userId))
     story = result.scalar_one_or_none()
@@ -156,7 +156,7 @@ async def update_text_by_images(request: UpdateTextByImagesRequest, db: AsyncSes
     return story.to_story_details_response()
 
 
-@router.post("/uploadImage", response_model=StoryDetailsResponse)
+@router.post("/uploadImage", response_model=StoryDetailsResponse, operation_id="uploadImage")
 async def upload_image(request: UploadImageRequest, db: AsyncSession = Depends(get_async_db)):
     result = await db.execute(select(Story).filter_by(storyId=request.storyId, userId=request.userId))
     story = result.scalar_one_or_none()
