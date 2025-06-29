@@ -1,3 +1,4 @@
+from enum import Enum
 from typing import Optional, List, Union, Literal
 
 from pydantic import BaseModel, Field
@@ -30,6 +31,10 @@ class SketchOnImageOperation(BaseModel):
 # Union type for all image operations
 ImageOperation = Union[NoChangeOperation, SketchFromScratchOperation, SketchOnImageOperation]
 
+
+class StoryState(str, Enum):
+    pending = "pending"
+    completed = "completed"
 
 # Request Models
 class CreateUserRequest(BaseModel):
@@ -102,6 +107,7 @@ class StoryDetailsResponse(BaseModel):
     storyId: str
     storyName: str
     storyText: str
+    state: StoryState
     storyImages: List[ImageResponse]
 
 

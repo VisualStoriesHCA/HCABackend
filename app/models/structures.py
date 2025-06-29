@@ -9,13 +9,14 @@ from typing import List, Dict
 
 from PIL import Image as PIL_Image
 from openai import AsyncOpenAI
-from sqlalchemy import Integer, select, update
+from sqlalchemy import Integer, select, update, Enum as SQLAlchemyEnum
 from sqlalchemy import create_engine, Column, String, DateTime, ForeignKey, Enum as SqlEnum, Text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, sessionmaker
 
 from ..models import utils
 from ..models.db import Base
+from ..routers.schemas import StoryState
 
 logger = logging.getLogger(__name__)
 
@@ -85,6 +86,7 @@ class Story(Base):
     lastEdited = Column(String, default=lambda: datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"))
     userId = Column(String, ForeignKey('users.userId'))
     image_counter = Column(Integer, default=0)
+    state = Column(SQLAlchemyEnum(StoryState), default=StoryState.completed, nullable=False)
 
     images = relationship("Image", backref="story", cascade="all, delete-orphan", lazy="selectin")
 
@@ -97,6 +99,7 @@ class Story(Base):
             "storyName": self.name,
             "lastEdited": self.lastEdited,
             "storyText": self.get_formatted_text(),
+            "state": self.state.value,
             "storyImages": reversed([image.to_dict() for image in self.images])
         }
 
@@ -113,6 +116,7 @@ class Story(Base):
             "storyId": self.storyId,
             "storyName": self.name,
             "storyText": self.get_formatted_text(),
+            "state": self.state.value,
             "storyImages": reversed([image.to_dict() for image in self.images])
         }
 
@@ -134,6 +138,9 @@ class Story(Base):
             updated_text = utils.highlight_additions(raw_text, updated_text)
         self.text = updated_text
         self.lastEdited = datetime.now(timezone.utc)
+
+    def update_state(self, state: StoryState):
+        self.state = state
 
     async def update_images_by_text(self, new_text: str):
         self.set_raw_text(new_text)
