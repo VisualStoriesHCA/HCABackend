@@ -169,7 +169,7 @@ async def upload_image(request: UploadImageRequest, db: AsyncSession = Depends(g
     story.update_state(StoryState.pending)
     await db.commit()
     await db.refresh(story)
-    story.upload_image(request.imageFile)
+    await story.upload_image(request.imageFile)
     story.update_state(StoryState.completed)
     await db.commit()
     await db.refresh(story)
