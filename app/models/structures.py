@@ -4,7 +4,6 @@ import os
 import re
 from datetime import datetime, timezone
 from enum import Enum
-from io import BytesIO
 from typing import List, Dict
 
 from PIL import Image as PIL_Image
@@ -202,33 +201,7 @@ class Story(Base):
                 new_text = await self.generate_no_change_text_string()
                 self.set_formatted_text(new_text)
             case Operation.SKETCH_ON_IMAGE:
-                base_image_path = f"/etc/images/{self.userId}/{self.storyId}/{image_operation.image_id}.png"
-                base_image = PIL_Image.open(base_image_path).convert("RGBA")
-
-                match = re.match(r"data:image/(?P<ext>\w+);base64,(?P<data>.+)", image_operation.canvas_data)
-                if not match:
-                    raise ValueError("Invalid image binary format")
-                base64_data = match.group("data")
-
-                overlay_bytes = base64.b64decode(base64_data)
-                overlay_image = PIL_Image.open(BytesIO(overlay_bytes)).convert("RGBA")
-                new_data = []
-                overlay_image.putdata(new_data)
-                base_width, base_height = base_image.size
-                overlay_width, overlay_height = overlay_image.size
-                left = (overlay_width - base_width) // 2
-                top = (overlay_height - base_height) // 2
-                right = left + base_width
-                bottom = top + base_height
-                cropped_overlay = overlay_image.crop((left, top, right, bottom))
-                base_image.paste(cropped_overlay, (0, 0), cropped_overlay)
-                buffered = BytesIO()
-                base_image.save(buffered, format="PNG")
-                new_base64 = base64.b64encode(buffered.getvalue()).decode("utf-8")
-                data_uri = f"data:image/png;base64,{new_base64}"
-                with open("/app/data/binary.txt", "w") as text_file:
-                    text_file.write(data_uri)
-                await self.upload_image(data_uri)
+                await self.upload_image(image_operation.canvas_data)
                 base64_image = await self.generate_image_from_sketch_only()
                 await self.upload_image(base64_image)
                 new_text = await self.generate_no_change_text_string()
