@@ -217,7 +217,8 @@ class Story(Base):
         client = AsyncOpenAI(api_key=os.environ["OPENAI_API_TOKEN"])
         image_path = f"/etc/images/{self.userId}/{self.storyId}/{self.images[-1].imageId}.png"
         from ..models.openai_client import image_to_story
-        return await image_to_story(client, image_path)
+        original_text = self.get_raw_text()
+        return await image_to_story(client, image_path, original_text)
 
     async def generate_image_from_sketch_only(self, text="") -> str:
         client = AsyncOpenAI(api_key=os.environ["OPENAI_API_TOKEN"])
