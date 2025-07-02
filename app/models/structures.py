@@ -179,8 +179,13 @@ class Story(Base):
         file_extension = match.group("ext").lower()
         base64_data = match.group("data")
 
+        # Validate file extension
+        if file_extension not in ['jpeg', 'jpg', 'png']:
+            raise ValueError(f"Unsupported image format: {file_extension}. Only JPEG, JPG, and PNG formats are supported.")
+
         # Decode base64 data
         image_data = base64.b64decode(base64_data)
+        image_filename = f"{image_id}.png"
         
         # Convert JPEG to PNG if needed, otherwise keep as is
         if file_extension in ['jpeg', 'jpg']:
@@ -192,12 +197,10 @@ class Story(Base):
                 image = image.convert('RGB')
             
             # Save as PNG
-            image_filename = f"{image_id}.png"
             image_path = os.path.join(dir_path, image_filename)
             image.save(image_path, 'PNG')
         else:
             # For PNG and other formats, save as is but ensure PNG extension
-            image_filename = f"{image_id}.png"
             with open(os.path.join(dir_path, image_filename), "wb") as img_file:
                 img_file.write(image_data)
 
