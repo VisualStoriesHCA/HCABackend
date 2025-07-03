@@ -9,8 +9,12 @@ async def encode_image_to_base64(path):
     return base64.b64encode(data).decode("utf-8")
 
 
-async def image_to_story(client, path):
+async def image_to_story(client, path, original_text=None):
     base64_image = await encode_image_to_base64(path)
+
+    prompt = "Please convert the following sketch image into a story. and make the least number of changes possible. Do not send back anything beside the story."
+    if original_text:
+        prompt = f"Please convert the following sketch image into a story. Here is the original story text: '{original_text}'. Please make minimal changes to the original text, only updating what is necessary to reflect the new drawing. Keep the same structure and style as much as possible. Do not send back anything beside the story."
 
     response = await client.chat.completions.create(
         model="gpt-4o",
@@ -20,7 +24,7 @@ async def image_to_story(client, path):
                 "content": [
                     {
                         "type": "text",
-                        "text": "Please convert the following sketch image into a story",
+                        "text": prompt,
                     },
                     {
                         "type": "image_url",
@@ -62,7 +66,7 @@ async def image_to_title(client, path):
 
 
 async def story_to_image(client, story):
-    prompt = "Please draw a sketch for the provided story. The sketch should contain several scenes going one after another. Keep it in a simple schematic way. The story is:\n" + story
+    prompt = "Please draw a colored sketch or image for the provided story. Try not to draw any text on the image from the story. The sketch should contain several scenes going one after another. Keep it in a simple schematic way. and make the least number of changes possible. The story is:\n" + story
     response = await client.images.generate(
         model="gpt-image-1",
         prompt=prompt,
@@ -76,7 +80,7 @@ async def story_to_image(client, story):
 
 
 async def modify_image(client, image_path, text=None):
-    prompt = "Generate from this sketch a story. try to seperate the frames with the arrows and do not change the number of frames. draw everything in a cartoony style. please do not change the number of frames. and make the least number of changes possible"
+    prompt = "Generate from this sketch a story. try to separate the frames with the arrows and do not change the number of frames. draw everything in a cartoony style. please do not change the number of frames. and make the least number of changes possible"
     if text:
         prompt += f"this is the text, make only the necessary changes: {text} but do not write the text on the picture"
     response = await client.images.edit(

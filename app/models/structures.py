@@ -4,18 +4,18 @@ import os
 import re
 from datetime import datetime, timezone
 from enum import Enum
-from io import BytesIO
 from typing import List, Dict
 
 from PIL import Image as PIL_Image
 from openai import AsyncOpenAI
-from sqlalchemy import Integer, select, update
+from sqlalchemy import Integer, select, update, Enum as SQLAlchemyEnum
 from sqlalchemy import create_engine, Column, String, DateTime, ForeignKey, Enum as SqlEnum, Text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, sessionmaker
 
 from ..models import utils
 from ..models.db import Base
+from ..routers.schemas import StoryState
 
 logger = logging.getLogger(__name__)
 
@@ -85,6 +85,7 @@ class Story(Base):
     lastEdited = Column(String, default=lambda: datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"))
     userId = Column(String, ForeignKey('users.userId'))
     image_counter = Column(Integer, default=0)
+    state = Column(SQLAlchemyEnum(StoryState), default=StoryState.completed, nullable=False)
 
     images = relationship("Image", backref="story", cascade="all, delete-orphan", lazy="selectin")
 
@@ -97,6 +98,7 @@ class Story(Base):
             "storyName": self.name,
             "lastEdited": self.lastEdited,
             "storyText": self.get_formatted_text(),
+            "state": self.state.value,
             "storyImages": reversed([image.to_dict() for image in self.images])
         }
 
@@ -113,6 +115,7 @@ class Story(Base):
             "storyId": self.storyId,
             "storyName": self.name,
             "storyText": self.get_formatted_text(),
+            "state": self.state.value,
             "storyImages": reversed([image.to_dict() for image in self.images])
         }
 
@@ -134,6 +137,9 @@ class Story(Base):
             updated_text = utils.highlight_additions(raw_text, updated_text)
         self.text = updated_text
         self.lastEdited = datetime.now(timezone.utc)
+
+    def update_state(self, state: StoryState):
+        self.state = state
 
     async def update_images_by_text(self, new_text: str):
         self.set_raw_text(new_text)
@@ -195,33 +201,7 @@ class Story(Base):
                 new_text = await self.generate_no_change_text_string()
                 self.set_formatted_text(new_text)
             case Operation.SKETCH_ON_IMAGE:
-                base_image_path = f"/etc/images/{self.userId}/{self.storyId}/{image_operation.image_id}.png"
-                base_image = PIL_Image.open(base_image_path).convert("RGBA")
-
-                match = re.match(r"data:image/(?P<ext>\w+);base64,(?P<data>.+)", image_operation.canvas_data)
-                if not match:
-                    raise ValueError("Invalid image binary format")
-                base64_data = match.group("data")
-
-                overlay_bytes = base64.b64decode(base64_data)
-                overlay_image = PIL_Image.open(BytesIO(overlay_bytes)).convert("RGBA")
-                new_data = []
-                overlay_image.putdata(new_data)
-                base_width, base_height = base_image.size
-                overlay_width, overlay_height = overlay_image.size
-                left = (overlay_width - base_width) // 2
-                top = (overlay_height - base_height) // 2
-                right = left + base_width
-                bottom = top + base_height
-                cropped_overlay = overlay_image.crop((left, top, right, bottom))
-                base_image.paste(cropped_overlay, (0, 0), cropped_overlay)
-                buffered = BytesIO()
-                base_image.save(buffered, format="PNG")
-                new_base64 = base64.b64encode(buffered.getvalue()).decode("utf-8")
-                data_uri = f"data:image/png;base64,{new_base64}"
-                with open("/app/data/binary.txt", "w") as text_file:
-                    text_file.write(data_uri)
-                await self.upload_image(data_uri)
+                await self.upload_image(image_operation.canvas_data)
                 base64_image = await self.generate_image_from_sketch_only()
                 await self.upload_image(base64_image)
                 new_text = await self.generate_no_change_text_string()
@@ -237,7 +217,8 @@ class Story(Base):
         client = AsyncOpenAI(api_key=os.environ["OPENAI_API_TOKEN"])
         image_path = f"/etc/images/{self.userId}/{self.storyId}/{self.images[-1].imageId}.png"
         from ..models.openai_client import image_to_story
-        return await image_to_story(client, image_path)
+        original_text = self.get_raw_text()
+        return await image_to_story(client, image_path, original_text)
 
     async def generate_image_from_sketch_only(self, text="") -> str:
         client = AsyncOpenAI(api_key=os.environ["OPENAI_API_TOKEN"])
