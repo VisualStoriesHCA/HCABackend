@@ -12,9 +12,9 @@ async def encode_image_to_base64(path):
 async def image_to_story(client, path, original_text=None):
     base64_image = await encode_image_to_base64(path)
 
-    prompt = "Please convert the following sketch image into a story. and make the least number of changes possible."
+    prompt = "Please convert the following sketch image into a story. and make the least number of changes possible. Do not send back anything beside the story."
     if original_text:
-        prompt = f"Please convert the following sketch image into a story. Here is the original story text: '{original_text}'. Please make minimal changes to the original text, only updating what is necessary to reflect the new drawing. Keep the same structure and style as much as possible."
+        prompt = f"Please convert the following sketch image into a story. Here is the original story text: '{original_text}'. Please make minimal changes to the original text, only updating what is necessary to reflect the new drawing. Keep the same structure and style as much as possible. Do not send back anything beside the story."
 
     response = await client.chat.completions.create(
         model="gpt-4o",
@@ -66,7 +66,7 @@ async def image_to_title(client, path):
 
 
 async def story_to_image(client, story):
-    prompt = "Please draw a colored sketch or image for the provided story. The sketch should contain several scenes going one after another. Keep it in a simple schematic way. and make the least number of changes possible. The story is:\n" + story
+    prompt = "Please draw a colored sketch or image for the provided story. Try not to draw any text on the image from the story. The sketch should contain several scenes going one after another. Keep it in a simple schematic way. and make the least number of changes possible. The story is:\n" + story
     response = await client.images.generate(
         model="gpt-image-1",
         prompt=prompt,
