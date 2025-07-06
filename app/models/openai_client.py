@@ -66,7 +66,7 @@ async def image_to_title(client, path):
 
 
 async def story_to_image(client, story):
-    prompt = "Please draw a colored sketch or image for the provided story. Try not to draw any text on the image from the story. The sketch should contain several scenes going one after another. Keep it in a simple schematic way. and make the least number of changes possible. The story is:\n" + story
+    prompt = "Please draw a colored sketch for the following story. Do not include any text in the image. Depict several scenes in sequence, using a simple schematic style. Make only minimal changes necessary. The story is:\n" + story
     response = await client.images.generate(
         model="gpt-image-1",
         prompt=prompt,
@@ -80,9 +80,9 @@ async def story_to_image(client, story):
 
 
 async def modify_image(client, image_path, text=None):
-    prompt = "Generate from this sketch a story. try to separate the frames with the arrows and do not change the number of frames. draw everything in a cartoony style. please do not change the number of frames. and make the least number of changes possible"
+    prompt = "Generate a story from this sketch. Separate the frames using arrows and do not change the number of frames. Draw everything in a cartoony style. Make only minimal changes."
     if text:
-        prompt += f"this is the text, make only the necessary changes: {text} but do not write the text on the picture"
+        prompt += f"This is the text. Make only the necessary changes: {text}. Do not include any text in the image."
     response = await client.images.edit(
         model="gpt-image-1",
         image=[open(image_path, "rb")],
