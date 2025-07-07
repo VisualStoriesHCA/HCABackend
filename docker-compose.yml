@@ -10,6 +10,7 @@ services:
       - ./data:/app/data
       - ./images:/etc/images
       - ./logs:/etc/logs
+      - ./audio:/etc/audio
     command: uvicorn app.main:app --host 0.0.0.0 --port 8080 --reload --workers 5
     environment:
       - PROJECT_NAME=HCA FastAPI Backend

@@ -86,6 +86,8 @@ class Story(Base):
     userId = Column(String, ForeignKey('users.userId'))
     image_counter = Column(Integer, default=0)
     state = Column(SQLAlchemyEnum(StoryState), default=StoryState.completed, nullable=False)
+    audio_counter = Column(Integer, default=0)
+    audio = Column(Text, default=None, nullable=True)
 
     images = relationship("Image", backref="story", cascade="all, delete-orphan", lazy="selectin")
 
@@ -99,7 +101,8 @@ class Story(Base):
             "lastEdited": self.lastEdited,
             "storyText": self.get_formatted_text(),
             "state": self.state.value,
-            "storyImages": reversed([image.to_dict() for image in self.images])
+            "storyImages": reversed([image.to_dict() for image in self.images]),
+            "audioUrl": self.audio
         }
 
     def to_story_basic_information(self):
@@ -116,7 +119,8 @@ class Story(Base):
             "storyName": self.name,
             "storyText": self.get_formatted_text(),
             "state": self.state.value,
-            "storyImages": reversed([image.to_dict() for image in self.images])
+            "storyImages": reversed([image.to_dict() for image in self.images]),
+            "audioUrl": self.audio
         }
 
     def get_raw_text(self) -> str:
@@ -210,6 +214,23 @@ class Story(Base):
         self.images.append(new_image)
         self.lastEdited = datetime.now(timezone.utc)
 
+    async def generate_audio(self, text: str):
+        if self.audio and text == self.get_raw_text():
+            return
+        self.text = text
+        self.audio_counter += 1
+        audio_id = f"aud_{self.storyId}_{self.audio_counter}"
+        dir_path = f"/etc/audio/{self.userId}/{self.storyId}"
+        os.makedirs(dir_path, exist_ok=True)
+        audio_filename = f"{audio_id}.wav"
+        from ..models.openai_client import text_to_speech
+        client = AsyncOpenAI(api_key=os.environ["OPENAI_API_TOKEN"])
+        audio_wav = await text_to_speech(client, text)
+        with open(os.path.join(dir_path, audio_filename), "wb") as audio_file:
+            audio_file.write(audio_wav)
+        self.lastEdited = datetime.now(timezone.utc)
+        self.audio = f"http://localhost:8080/audio/{self.userId}/{self.storyId}/{audio_id}"
+
     async def execute_image_operation(self, image_operation: ImageOperation):
         match image_operation.operation:
             case Operation.NO_CHANGE:
@@ -266,11 +287,12 @@ class Story(Base):
         client = AsyncOpenAI(api_key=os.environ["OPENAI_API_TOKEN"])
         from ..models.openai_client import modify_image, story_to_image
         from pathlib import Path
-        image_path = f"/etc/images/{self.userId}/{self.storyId}/{self.images[-1].imageId}.png"
+        file_path = None
+        if self.images:
+            image_path = f"/etc/images/{self.userId}/{self.storyId}/{self.images[-1].imageId}.png"
+            file_path = Path(image_path)
 
-        file_path = Path(image_path)
-
-        if file_path.exists():
+        if file_path and file_path.exists():
             return await modify_image(client, image_path, text)
         else:
             return await story_to_image(client, text)

@@ -70,6 +70,15 @@ async def get_image(user_id: str, story_id: str, image_id: str):
         return FileResponse(image_path)
     return {"error": "Image not found"}
 
+
+@app.get("/audio/{user_id}/{story_id}/{audio_id}")
+async def get_audio(user_id: str, story_id: str, audio_id: str):
+    audio_path = f"/etc/audio/{user_id}/{story_id}/{audio_id}.wav"
+    if os.path.exists(audio_path):
+        return FileResponse(audio_path)
+    return {"error": "Audio not found"}
+
+
 @app.get("/assets/logos/{image_id}")
 async def get_image(image_id: str):
     image_path = f"/app/app/assets/logos/{image_id}.png"
