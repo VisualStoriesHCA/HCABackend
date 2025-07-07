@@ -147,6 +147,7 @@ class Story(Base):
 
     async def update_images_by_text(self, new_text: str):
         self.set_raw_text(new_text)
+        self.audio = None
         logger.debug(f"Story text: {self.text}")
         raw_text = self.get_raw_text()
         base64_image = await self.modify_image_from_text(raw_text)
@@ -237,6 +238,7 @@ class Story(Base):
                 logger.debug(f"Operation {Operation.NO_CHANGE}")
                 new_text = await self.generate_no_change_text_string()
                 self.set_formatted_text(new_text)
+                self.audio = None
             case Operation.SKETCH_FROM_SCRATCH:
                 logger.debug(f"Operation {Operation.SKETCH_FROM_SCRATCH}")
                 await self.upload_image(image_operation.canvas_data)
@@ -244,6 +246,7 @@ class Story(Base):
                 await self.upload_image(base64_image)
                 new_text = await self.generate_no_change_text_string()
                 self.set_formatted_text(new_text)
+                self.audio = None
             case Operation.SKETCH_ON_IMAGE:
                 logger.debug(f"Operation {Operation.SKETCH_ON_IMAGE}")
                 await self.upload_image(image_operation.canvas_data)
@@ -251,6 +254,7 @@ class Story(Base):
                 await self.upload_image(base64_image)
                 new_text = await self.generate_no_change_text_string()
                 self.set_formatted_text(new_text)
+                self.audio = None
             case _:
                 raise Exception(f"Unknown operation {image_operation.operation}")
 
