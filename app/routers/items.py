@@ -169,7 +169,15 @@ async def upload_image(request: UploadImageRequest, db: AsyncSession = Depends(g
     story.update_state(StoryState.pending)
     await db.commit()
     await db.refresh(story)
-    await story.upload_image(request.imageFile)
+    
+    try:
+        await story.upload_image(request.imageFile)
+    except ValueError as e:
+        # Rollback the state change if image upload fails
+        story.update_state(StoryState.completed)
+        await db.commit()
+        raise HTTPException(status_code=400, detail=str(e))
+    
     story.update_state(StoryState.completed)
     await db.commit()
     await db.refresh(story)
