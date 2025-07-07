@@ -15,7 +15,8 @@ from ..routers.schemas import (
     SetStoryNameRequest, DeleteStoryRequest,
     UserStoriesResponse, StoryBasicInfoResponse,
     StoryDetailsResponse, UpdateImagesByTextRequest,
-    UpdateTextByImagesRequest, UploadImageRequest, StoryState
+    UpdateTextByImagesRequest, UploadImageRequest, StoryState,
+    GenerateAudioRequest
 )
 
 logger = logging.getLogger(__name__)
@@ -146,6 +147,7 @@ async def update_images_by_text(request: UpdateImagesByTextRequest, db: AsyncSes
 
 @router.post("/updateTextByImages", response_model=StoryDetailsResponse, operation_id="updateTextByImages")
 async def update_text_by_images(request: UpdateTextByImagesRequest, db: AsyncSession = Depends(get_async_db)):
+    logger.debug(f"Calling '/updateTextByImages'")
     result = await db.execute(select(Story).filter_by(storyId=request.storyId, userId=request.userId))
     story = result.scalar_one_or_none()
     if not story:
@@ -178,6 +180,22 @@ async def upload_image(request: UploadImageRequest, db: AsyncSession = Depends(g
         await db.commit()
         raise HTTPException(status_code=400, detail=str(e))
     
+    story.update_state(StoryState.completed)
+    await db.commit()
+    await db.refresh(story)
+    return story.to_story_details_response()
+
+
+@router.post("/generateAudio", response_model=StoryDetailsResponse, operation_id="generateAudio")
+async def generate_audio(request: GenerateAudioRequest, db: AsyncSession = Depends(get_async_db)):
+    result = await db.execute(select(Story).filter_by(storyId=request.storyId, userId=request.userId))
+    story = result.scalar_one_or_none()
+    if not story:
+        raise HTTPException(status_code=404, detail="Story not found")
+    story.update_state(StoryState.pending)
+    await db.commit()
+    await db.refresh(story)
+    await story.generate_audio(request.text)
     story.update_state(StoryState.completed)
     await db.commit()
     await db.refresh(story)

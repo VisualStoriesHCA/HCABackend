@@ -81,6 +81,12 @@ class UploadImageRequest(BaseModel):
     imageFile: str
 
 
+class GenerateAudioRequest(BaseModel):
+    userId: str
+    storyId: str
+    text: str
+
+
 # Response Models
 class UserResponse(BaseModel):
     userId: str
@@ -109,6 +115,7 @@ class StoryDetailsResponse(BaseModel):
     storyText: str
     state: StoryState
     storyImages: List[ImageResponse]
+    audioUrl: Optional[str] = None
 
 
 class UserStoriesResponse(BaseModel):

@@ -86,6 +86,8 @@ class Story(Base):
     userId = Column(String, ForeignKey('users.userId'))
     image_counter = Column(Integer, default=0)
     state = Column(SQLAlchemyEnum(StoryState), default=StoryState.completed, nullable=False)
+    audio_counter = Column(Integer, default=0)
+    audio = Column(Text, default=None, nullable=True)
 
     images = relationship("Image", backref="story", cascade="all, delete-orphan", lazy="selectin")
 
@@ -99,7 +101,8 @@ class Story(Base):
             "lastEdited": self.lastEdited,
             "storyText": self.get_formatted_text(),
             "state": self.state.value,
-            "storyImages": reversed([image.to_dict() for image in self.images])
+            "storyImages": reversed([image.to_dict() for image in self.images]),
+            "audioUrl": self.audio
         }
 
     def to_story_basic_information(self):
@@ -116,7 +119,8 @@ class Story(Base):
             "storyName": self.name,
             "storyText": self.get_formatted_text(),
             "state": self.state.value,
-            "storyImages": reversed([image.to_dict() for image in self.images])
+            "storyImages": reversed([image.to_dict() for image in self.images]),
+            "audioUrl": self.audio
         }
 
     def get_raw_text(self) -> str:
@@ -145,7 +149,7 @@ class Story(Base):
         self.set_raw_text(new_text)
         logger.debug(f"Story text: {self.text}")
         raw_text = self.get_raw_text()
-        base64_image = await self.generate_image_from_sketch_only(raw_text)
+        base64_image = await self.modify_image_from_text(raw_text)
         await self.upload_image(base64_image)
         await self.update_story_name()
 
@@ -210,20 +214,40 @@ class Story(Base):
         self.images.append(new_image)
         self.lastEdited = datetime.now(timezone.utc)
 
+    async def generate_audio(self, text: str):
+        if self.audio and text == self.get_raw_text():
+            return
+        self.text = text
+        self.audio_counter += 1
+        audio_id = f"aud_{self.storyId}_{self.audio_counter}"
+        dir_path = f"/etc/audio/{self.userId}/{self.storyId}"
+        os.makedirs(dir_path, exist_ok=True)
+        audio_filename = f"{audio_id}.wav"
+        from ..models.openai_client import text_to_speech
+        client = AsyncOpenAI(api_key=os.environ["OPENAI_API_TOKEN"])
+        audio_wav = await text_to_speech(client, text)
+        with open(os.path.join(dir_path, audio_filename), "wb") as audio_file:
+            audio_file.write(audio_wav)
+        self.lastEdited = datetime.now(timezone.utc)
+        self.audio = f"http://localhost:8080/audio/{self.userId}/{self.storyId}/{audio_id}"
+
     async def execute_image_operation(self, image_operation: ImageOperation):
         match image_operation.operation:
             case Operation.NO_CHANGE:
+                logger.debug(f"Operation {Operation.NO_CHANGE}")
                 new_text = await self.generate_no_change_text_string()
                 self.set_formatted_text(new_text)
             case Operation.SKETCH_FROM_SCRATCH:
+                logger.debug(f"Operation {Operation.SKETCH_FROM_SCRATCH}")
                 await self.upload_image(image_operation.canvas_data)
-                base64_image = await self.generate_image_from_sketch_only("from scratch and up to you.")
+                base64_image = await self.generate_image_sketch_from_scratch()
                 await self.upload_image(base64_image)
                 new_text = await self.generate_no_change_text_string()
                 self.set_formatted_text(new_text)
             case Operation.SKETCH_ON_IMAGE:
+                logger.debug(f"Operation {Operation.SKETCH_ON_IMAGE}")
                 await self.upload_image(image_operation.canvas_data)
-                base64_image = await self.generate_image_from_sketch_only()
+                base64_image = await self.generate_image_sketch_on_image()
                 await self.upload_image(base64_image)
                 new_text = await self.generate_no_change_text_string()
                 self.set_formatted_text(new_text)
@@ -241,14 +265,38 @@ class Story(Base):
         original_text = self.get_raw_text()
         return await image_to_story(client, image_path, original_text)
 
-    async def generate_image_from_sketch_only(self, text="") -> str:
+    async def generate_image_sketch_from_scratch(self) -> str:
+        client = AsyncOpenAI(api_key=os.environ["OPENAI_API_TOKEN"])
+        from ..models.openai_client import modify_image
+        image_path = f"/etc/images/{self.userId}/{self.storyId}/{self.images[-1].imageId}.png"
+        # Modifying the sketch to become an image
+        return await modify_image(client, image_path)
+
+    async def generate_image_sketch_on_image(self) -> str:
+        logger.debug("Calling 'generate_image_sketch_on_image'")
+        client = AsyncOpenAI(api_key=os.environ["OPENAI_API_TOKEN"])
+        from ..models.openai_client import modify_image
+        image_path = f"/etc/images/{self.userId}/{self.storyId}/{self.images[-1].imageId}.png"
+        original_text = self.get_raw_text()
+        # Modifying the image by sketching on it
+        logger.debug("Calling 'modify_image'")
+        logger.debug(f"Story: {original_text}")
+        return await modify_image(client, image_path, original_text)
+
+    async def modify_image_from_text(self, text="") -> str:
         client = AsyncOpenAI(api_key=os.environ["OPENAI_API_TOKEN"])
         from ..models.openai_client import modify_image, story_to_image
-        try:
+        from pathlib import Path
+        file_path = None
+        if self.images:
             image_path = f"/etc/images/{self.userId}/{self.storyId}/{self.images[-1].imageId}.png"
+            file_path = Path(image_path)
+
+        if file_path and file_path.exists():
             return await modify_image(client, image_path, text)
-        except:
+        else:
             return await story_to_image(client, text)
+
 
 class User(Base):
     __tablename__ = 'users'

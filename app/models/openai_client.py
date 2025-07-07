@@ -94,3 +94,13 @@ async def modify_image(client, image_path, text=None):
     image_url = f"data:image/png;base64,{response.data[0].b64_json}"
 
     return image_url
+
+
+async def text_to_speech(client, text):
+    audio_response = await client.audio.speech.create(
+        model="tts-1",
+        voice="nova",  # voices: nova, shimmer, alloy, echo, fable, onyx
+        input=text,
+        response_format="wav"
+    )
+    return audio_response.read()
