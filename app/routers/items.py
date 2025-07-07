@@ -146,6 +146,7 @@ async def update_images_by_text(request: UpdateImagesByTextRequest, db: AsyncSes
 
 @router.post("/updateTextByImages", response_model=StoryDetailsResponse, operation_id="updateTextByImages")
 async def update_text_by_images(request: UpdateTextByImagesRequest, db: AsyncSession = Depends(get_async_db)):
+    logger.debug(f"Calling '/updateTextByImages'")
     result = await db.execute(select(Story).filter_by(storyId=request.storyId, userId=request.userId))
     story = result.scalar_one_or_none()
     if not story:
