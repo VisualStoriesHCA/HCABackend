@@ -1,3 +1,5 @@
+# app/routers/items.py
+
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
@@ -14,8 +16,8 @@ from ..routers.schemas import (
     UserStoriesResponse, StoryBasicInfoResponse,
     StoryDetailsResponse, UpdateImagesByTextRequest,
     UpdateTextByImagesRequest, UploadImageRequest, StoryState,
-    UserAchievementsResponse, UserAchievement, AchievementType, 
-    AchievementState, AchievementReward
+    UserAchievementsResponse, UserAchievement, AchievementType,
+    AchievementState, AchievementReward, GenerateAudioRequest
 )
 
 logger = logging.getLogger(__name__)
@@ -131,17 +133,17 @@ async def get_story_by_id(userId: str, storyId: str, db: AsyncSession = Depends(
 async def get_user_achievements(userId: str = Query(...), db: AsyncSession = Depends(get_async_db)):
     """
     Get all achievements and user progress for gamification features.
-    
+
     This is a placeholder implementation that returns static example data.
     TODO: Implement actual database queries when Achievement and UserAchievement tables are created.
     """
-    
+
     # Verify user exists
     result = await db.execute(select(User).filter_by(userId=userId))
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    
+
     # Static example data - replace with actual database queries later
     static_achievements = [
         UserAchievement(
@@ -218,7 +220,7 @@ async def get_user_achievements(userId: str = Query(...), db: AsyncSession = Dep
             unlockCondition="Complete 'Storyteller' achievement"
         )
     ]
-    
+
     return UserAchievementsResponse(achievements=static_achievements)
 
 
@@ -241,6 +243,7 @@ async def update_images_by_text(request: UpdateImagesByTextRequest, db: AsyncSes
 
 @router.post("/updateTextByImages", response_model=StoryDetailsResponse, operation_id="updateTextByImages")
 async def update_text_by_images(request: UpdateTextByImagesRequest, db: AsyncSession = Depends(get_async_db)):
+    logger.debug(f"Calling '/updateTextByImages'")
     result = await db.execute(select(Story).filter_by(storyId=request.storyId, userId=request.userId))
     story = result.scalar_one_or_none()
     if not story:
@@ -273,6 +276,22 @@ async def upload_image(request: UploadImageRequest, db: AsyncSession = Depends(g
         await db.commit()
         raise HTTPException(status_code=400, detail=str(e))
     
+    story.update_state(StoryState.completed)
+    await db.commit()
+    await db.refresh(story)
+    return story.to_story_details_response()
+
+
+@router.post("/generateAudio", response_model=StoryDetailsResponse, operation_id="generateAudio")
+async def generate_audio(request: GenerateAudioRequest, db: AsyncSession = Depends(get_async_db)):
+    result = await db.execute(select(Story).filter_by(storyId=request.storyId, userId=request.userId))
+    story = result.scalar_one_or_none()
+    if not story:
+        raise HTTPException(status_code=404, detail="Story not found")
+    story.update_state(StoryState.pending)
+    await db.commit()
+    await db.refresh(story)
+    await story.generate_audio(request.text)
     story.update_state(StoryState.completed)
     await db.commit()
     await db.refresh(story)

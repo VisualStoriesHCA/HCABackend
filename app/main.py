@@ -1,7 +1,23 @@
 # app/main.py
 import logging
-import os
 
+from logging.handlers import RotatingFileHandler
+
+handler = RotatingFileHandler(
+    filename="/etc/logs/app.log",
+    mode="a",
+    maxBytes=1024 * 1000,
+    backupCount=10
+)
+
+formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(name)s - %(message)s")
+handler.setFormatter(formatter)
+
+logger = logging.getLogger()
+logger.setLevel(logging.DEBUG)
+logger.addHandler(handler)
+
+import os
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
@@ -9,10 +25,6 @@ from fastapi.requests import Request
 from fastapi.responses import FileResponse
 from fastapi.responses import JSONResponse
 
-logging.basicConfig(
-    level=logging.DEBUG,
-    format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
-)
 from .config import settings
 from .models.db import init_models
 from .routers import items
@@ -57,6 +69,15 @@ async def get_image(user_id: str, story_id: str, image_id: str):
     if os.path.exists(image_path):
         return FileResponse(image_path)
     return {"error": "Image not found"}
+
+
+@app.get("/audio/{user_id}/{story_id}/{audio_id}")
+async def get_audio(user_id: str, story_id: str, audio_id: str):
+    audio_path = f"/etc/audio/{user_id}/{story_id}/{audio_id}.wav"
+    if os.path.exists(audio_path):
+        return FileResponse(audio_path)
+    return {"error": "Audio not found"}
+
 
 @app.get("/assets/logos/{image_id}")
 async def get_image(image_id: str):
