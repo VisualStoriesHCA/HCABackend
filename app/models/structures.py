@@ -8,14 +8,14 @@ from typing import List, Dict
 
 from PIL import Image as PIL_Image
 from openai import AsyncOpenAI
-from sqlalchemy import Integer, select, update, Enum as SQLAlchemyEnum
+from sqlalchemy import Integer, select, update, Enum as SQLAlchemyEnum, and_
 from sqlalchemy import create_engine, Column, String, DateTime, ForeignKey, Enum as SqlEnum, Text
-from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, sessionmaker
 
 from ..models import utils
-from ..models.db import Base
-from ..routers.schemas import StoryState
+from ..models.achievements import Achievement
+from ..models.base import Base
+from ..routers.schemas import StoryState, AchievementState
 
 logger = logging.getLogger(__name__)
 
@@ -73,6 +73,39 @@ class Image(Base):
             "imageId": self.imageId,
             "url": self.url,
             "alt": self.alt
+        }
+
+
+class UserAchievement(Base):
+    __tablename__ = "user_achievements"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    userId = Column(String, ForeignKey('users.userId'))
+    achievementId = Column(String, ForeignKey('achievements.achievementId'))
+
+    state = Column(SQLAlchemyEnum(AchievementState), default=AchievementState.locked)
+    currentValue = Column(Integer, default=0)
+    completedAt = Column(DateTime, nullable=True)
+
+    achievement = relationship("Achievement", lazy="selectin")
+
+    def to_dict(self):
+        return {
+            "achievementId": int(self.achievementId),
+            "title": self.achievement.title if self.achievement else None,
+            "description": self.achievement.description if self.achievement else None,
+            "category": self.achievement.category if self.achievement else None,
+            "type": self.achievement.type if self.achievement else None,
+            "imageUrl": self.achievement.imageUrl if self.achievement else None,
+            "state": self.state.name if self.state else None,
+            "currentValue": self.currentValue,
+            "targetValue": self.achievement.targetValue if self.achievement else None,
+            "unit": self.achievement.unit if self.achievement else None,
+            "completedAt": self.completedAt.isoformat() if self.completedAt else None,
+            "reward": {
+                "points": self.achievement.reward_points if self.achievement else None,
+                "badge": self.achievement.reward_badge if self.achievement else None,
+            },
+            "unlockCondition": self.achievement.unlockCondition if self.achievement else None,
         }
 
 
@@ -310,6 +343,7 @@ class User(Base):
     accountCreated = Column(String, default=lambda: datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"))
     story_counter = Column(Integer, default=0)
     stories = relationship("Story", backref="user", cascade="all, delete-orphan", lazy="selectin")
+    achievements = relationship("UserAchievement", cascade="all, delete-orphan", lazy="selectin")
 
     def __str__(self):
         return f"Id: {self.userId}\nName: {self.name}\nUsername: {self.userName}\nAccount Created: {self.accountCreated}"
@@ -336,3 +370,63 @@ class User(Base):
             if s.storyId == storyId:
                 return s
         raise ValueError("Story not found")
+
+    async def get_achievements(self, db):
+        base_achievements = await db.scalars(select(Achievement))
+        base_achievements = base_achievements.all()
+        user_achievements_map = {ua.achievementId: ua for ua in self.achievements}
+
+        result = []
+
+        for base_ach in base_achievements:
+            if base_ach.achievementId in user_achievements_map.keys():
+                user_ach = user_achievements_map[base_ach.achievementId]
+                if not user_ach.achievement:
+                    user_ach.achievement = base_ach
+                result.append(user_ach.to_dict())
+            else:
+                virtual_ua = UserAchievement(
+                    userId=self.userId,
+                    achievementId=base_ach.achievementId,
+                    state=AchievementState.locked,
+                    currentValue=0,
+                    completedAt=None,
+                    achievement=base_ach
+                )
+                result.append(virtual_ua.to_dict())
+
+        return {"achievements": result}
+
+    async def update_achievement(self, achievementId: str, db):
+        base_ach = await db.scalar(select(Achievement).where(Achievement.achievementId == achievementId))
+        if not base_ach:
+            raise ValueError(f"Achievement {achievementId} not found")
+        result = await db.execute(
+            select(UserAchievement)
+            .where(
+                and_(
+                    UserAchievement.userId == self.userId,
+                    UserAchievement.achievementId == achievementId
+                )
+            )
+        )
+        user_ach = result.scalar_one_or_none()
+
+        match achievementId:
+            case "1":
+                if user_ach is None:
+                    user_ach = UserAchievement(
+                        userId=self.userId,
+                        achievementId=achievementId,
+                        state=AchievementState.in_progress,
+                        currentValue=1,
+                        completedAt=None,
+                        achievement=base_ach
+                    )
+                else:
+                    user_ach.currentValue += 1
+                    if user_ach.currentValue >= 10:
+                        user_ach.state = AchievementState.completed
+                        user_ach.completedAt = datetime.utcnow()
+
+        return user_ach

@@ -16,8 +16,7 @@ from ..routers.schemas import (
     UserStoriesResponse, StoryBasicInfoResponse,
     StoryDetailsResponse, UpdateImagesByTextRequest,
     UpdateTextByImagesRequest, UploadImageRequest, StoryState,
-    UserAchievementsResponse, UserAchievement, AchievementType,
-    AchievementState, AchievementReward, GenerateAudioRequest
+    UserAchievementsResponse, GenerateAudioRequest
 )
 
 logger = logging.getLogger(__name__)
@@ -84,7 +83,9 @@ async def create_new_story(request: CreateNewStoryRequest, db: AsyncSession = De
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     story = user.create_story(story_name=request.storyName)
+    achievement = await user.update_achievement(achievementId="1", db=db)
     db.add(story)
+    db.add(achievement)
     await db.commit()
     await db.refresh(story)
     return story.to_story_basic_information()
@@ -131,97 +132,12 @@ async def get_story_by_id(userId: str, storyId: str, db: AsyncSession = Depends(
 
 @router.get("/getUserAchievements", response_model=UserAchievementsResponse, operation_id="getUserAchievements")
 async def get_user_achievements(userId: str = Query(...), db: AsyncSession = Depends(get_async_db)):
-    """
-    Get all achievements and user progress for gamification features.
-
-    This is a placeholder implementation that returns static example data.
-    TODO: Implement actual database queries when Achievement and UserAchievement tables are created.
-    """
-
     # Verify user exists
     result = await db.execute(select(User).filter_by(userId=userId))
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-
-    # Static example data - replace with actual database queries later
-    static_achievements = [
-        UserAchievement(
-            achievementId=1,
-            title="Storyteller",
-            description="Write your first 10 stories",
-            category="story_creation",
-            type=AchievementType.progress,
-            imageUrl="https://example.com/badges/storyteller.png",
-            state=AchievementState.in_progress,
-            currentValue=7,
-            targetValue=10,
-            unit="stories",
-            completedAt=None,
-            reward=AchievementReward(
-                points=100,
-                badge="Bronze Storyteller"
-            ),
-            unlockCondition=None
-        ),
-        UserAchievement(
-            achievementId=2,
-            title="Epic Novelist",
-            description="Write a story with at least 1000 words",
-            category="creativity",
-            type=AchievementType.milestone,
-            imageUrl="https://example.com/badges/novelist.png",
-            state=AchievementState.completed,
-            currentValue=1247,
-            targetValue=1000,
-            unit="words",
-            completedAt="2025-06-20T14:30:00Z",
-            reward=AchievementReward(
-                points=250,
-                badge="Epic Novelist",
-                unlocks=["advanced_writing_tools"]
-            ),
-            unlockCondition=None
-        ),
-        UserAchievement(
-            achievementId=3,
-            title="Master Editor",
-            description="Make 25 edits to your stories",
-            category="creativity",
-            type=AchievementType.progress,
-            imageUrl="https://example.com/badges/editor.png",
-            state=AchievementState.in_progress,
-            currentValue=12,
-            targetValue=25,
-            unit="edits",
-            completedAt=None,
-            reward=AchievementReward(
-                points=150,
-                badge="Master Editor"
-            ),
-            unlockCondition=None
-        ),
-        UserAchievement(
-            achievementId=4,
-            title="Consistent Creator",
-            description="Write stories for 7 consecutive days",
-            category="consistency",
-            type=AchievementType.progress,
-            imageUrl="https://example.com/badges/consistent.png",
-            state=AchievementState.locked,
-            currentValue=0,
-            targetValue=7,
-            unit="days",
-            completedAt=None,
-            reward=AchievementReward(
-                points=300,
-                badge="Consistent Creator"
-            ),
-            unlockCondition="Complete 'Storyteller' achievement"
-        )
-    ]
-
-    return UserAchievementsResponse(achievements=static_achievements)
+    return await user.get_achievements(db)
 
 
 @router.post("/updateImagesByText", response_model=StoryDetailsResponse, operation_id="updateImagesByText")

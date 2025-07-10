@@ -26,7 +26,7 @@ from fastapi.responses import FileResponse
 from fastapi.responses import JSONResponse
 
 from .config import settings
-from .models.db import init_models
+from .models.db import init_models, load_achievements_from_json
 from .routers import items
 
 app = FastAPI(
@@ -51,6 +51,7 @@ app.include_router(items.router)
 @app.on_event("startup")
 async def on_startup():
     await init_models()
+    await load_achievements_from_json()
 
 
 @app.get("/")
