@@ -150,7 +150,13 @@ async def update_images_by_text(request: UpdateImagesByTextRequest, db: AsyncSes
     story.update_state(StoryState.pending)
     await db.commit()
     await db.refresh(story)
-    await story.update_images_by_text(request.updatedText)
+    try:
+        await story.update_images_by_text(request.updatedText)
+    except:
+        story.update_state(StoryState.error)
+        await db.commit()
+        await db.refresh(story)
+        raise HTTPException(status_code=400)
     story.update_state(StoryState.completed)
     await db.commit()
     await db.refresh(story)
@@ -183,7 +189,13 @@ async def update_text_by_images(request: UpdateTextByImagesRequest, db: AsyncSes
     story.update_state(StoryState.pending)
     await db.commit()
     await db.refresh(story)
-    await story.update_from_image_operations([op.model_dump() for op in request.imageOperations])
+    try:
+        await story.update_from_image_operations([op.model_dump() for op in request.imageOperations])
+    except:
+        story.update_state(StoryState.error)
+        await db.commit()
+        await db.refresh(story)
+        raise HTTPException(status_code=400)
     story.update_state(StoryState.completed)
     await db.commit()
     await db.refresh(story)
@@ -219,8 +231,9 @@ async def upload_image(request: UploadImageRequest, db: AsyncSession = Depends(g
     try:
         await story.upload_image(request.imageFile)
     except ValueError as e:
-        story.update_state(StoryState.completed)
+        story.update_state(StoryState.error)
         await db.commit()
+        await db.refresh(story)
         raise HTTPException(status_code=400, detail=str(e))
     
     story.update_state(StoryState.completed)
@@ -238,7 +251,13 @@ async def generate_audio(request: GenerateAudioRequest, db: AsyncSession = Depen
     story.update_state(StoryState.pending)
     await db.commit()
     await db.refresh(story)
-    await story.generate_audio(request.text)
+    try:
+        await story.generate_audio(request.text)
+    except:
+        story.update_state(StoryState.error)
+        await db.commit()
+        await db.refresh(story)
+        raise HTTPException(status_code=400)
     story.update_state(StoryState.completed)
     await db.commit()
     await db.refresh(story)
