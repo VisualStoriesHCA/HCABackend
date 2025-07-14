@@ -154,6 +154,14 @@ async def update_images_by_text(request: UpdateImagesByTextRequest, db: AsyncSes
     story.update_state(StoryState.completed)
     await db.commit()
     await db.refresh(story)
+    result = await db.execute(select(User).filter_by(userId=request.userId))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    achievement = await user.update_achievement(achievementId="2", db=db, story=story)
+    db.add(achievement)
+    await db.commit()
+    await db.refresh(achievement)
     return story.to_story_details_response()
 
 
@@ -171,6 +179,14 @@ async def update_text_by_images(request: UpdateTextByImagesRequest, db: AsyncSes
     story.update_state(StoryState.completed)
     await db.commit()
     await db.refresh(story)
+    result = await db.execute(select(User).filter_by(userId=request.userId))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    achievement = await user.update_achievement(achievementId="2", db=db, story=story)
+    db.add(achievement)
+    await db.commit()
+    await db.refresh(achievement)
     return story.to_story_details_response()
 
 
@@ -187,7 +203,6 @@ async def upload_image(request: UploadImageRequest, db: AsyncSession = Depends(g
     try:
         await story.upload_image(request.imageFile)
     except ValueError as e:
-        # Rollback the state change if image upload fails
         story.update_state(StoryState.completed)
         await db.commit()
         raise HTTPException(status_code=400, detail=str(e))

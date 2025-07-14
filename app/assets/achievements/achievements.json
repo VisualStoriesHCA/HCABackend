@@ -18,7 +18,7 @@
     {
       "achievementId": "2",
       "title": "Epic Novelist",
-      "description": "Write a story with at least 1000 words",
+      "description": "Write a story with at least 1000 characters",
       "category": "creativity",
       "type": "milestone",
       "imageUrl": "https://example.com/badges/novelist.png",

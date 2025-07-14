@@ -397,7 +397,7 @@ class User(Base):
 
         return {"achievements": result}
 
-    async def update_achievement(self, achievementId: str, db):
+    async def update_achievement(self, achievementId: str, db, story=None):
         base_ach = await db.scalar(select(Achievement).where(Achievement.achievementId == achievementId))
         if not base_ach:
             raise ValueError(f"Achievement {achievementId} not found")
@@ -426,6 +426,23 @@ class User(Base):
                 else:
                     user_ach.currentValue += 1
                     if user_ach.currentValue >= 10:
+                        user_ach.state = AchievementState.completed
+                        user_ach.completedAt = datetime.utcnow()
+
+            case "2":
+                number_words = len(story.get_raw_text().replace("<br>", "").strip().replace(" ", ""))
+                if user_ach is None:
+                    user_ach = UserAchievement(
+                        userId=self.userId,
+                        achievementId=achievementId,
+                        state=AchievementState.in_progress,
+                        currentValue=number_words,
+                        completedAt=None,
+                        achievement=base_ach
+                    )
+                else:
+                    user_ach.currentValue = max(user_ach.currentValue, number_words)
+                    if user_ach.currentValue >= 1000:
                         user_ach.state = AchievementState.completed
                         user_ach.completedAt = datetime.utcnow()
 
