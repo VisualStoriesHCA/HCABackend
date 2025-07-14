@@ -400,19 +400,23 @@ class User(Base):
         return {"achievements": result}
 
     async def update_achievement(self, achievementId: str, db, story=None):
-        base_ach = await db.scalar(select(Achievement).where(Achievement.achievementId == achievementId))
-        if not base_ach:
-            raise ValueError(f"Achievement {achievementId} not found")
-        result = await db.execute(
-            select(UserAchievement)
-            .where(
-                and_(
-                    UserAchievement.userId == self.userId,
-                    UserAchievement.achievementId == achievementId
+        async def get_achievement(achievement_id):
+            base_ach = await db.scalar(select(Achievement).where(Achievement.achievementId == achievement_id))
+            if not base_ach:
+                raise ValueError(f"Achievement {achievement_id} not found")
+            result = await db.execute(
+                select(UserAchievement)
+                .where(
+                    and_(
+                        UserAchievement.userId == self.userId,
+                        UserAchievement.achievementId == achievement_id
+                    )
                 )
             )
-        )
-        user_ach = result.scalar_one_or_none()
+            user_ach = result.scalar_one_or_none()
+            return base_ach, user_ach
+
+        base_ach, user_ach = await get_achievement(achievementId)
         current_time = datetime.now(timezone.utc)
         match achievementId:
             case "1":
@@ -432,6 +436,10 @@ class User(Base):
                     if user_ach.currentValue >= 10:
                         user_ach.state = AchievementState.completed
                         user_ach.completedAt = current_time
+                        _, user_ach_4 = await get_achievement("4")
+                        if user_ach_4 is not None and user_ach_4.currentValue >= 7:
+                            user_ach_4.state = AchievementState.completed
+                            user_ach_4.completedAt = current_time
 
             case "2":
                 number_words = len(story.get_raw_text().replace("<br>", "").strip().replace(" ", ""))
@@ -488,7 +496,10 @@ class User(Base):
                         user_ach.currentValue += 1
                         user_ach.lastUpdate = current_time
                     if user_ach.currentValue >= 7:
-                        user_ach.state = AchievementState.completed
-                        user_ach.completedAt = current_time
+                        # check for unlock condition for 1
+                        _, user_ach_1 = await get_achievement("1")
+                        if user_ach_1.state == AchievementState.completed:
+                            user_ach.state = AchievementState.completed
+                            user_ach.completedAt = current_time
 
         return user_ach
