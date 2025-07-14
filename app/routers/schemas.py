@@ -35,6 +35,7 @@ ImageOperation = Union[NoChangeOperation, SketchFromScratchOperation, SketchOnIm
 class StoryState(str, Enum):
     pending = "pending"
     completed = "completed"
+    error = "error"
 
 
 # Achievement Enums
