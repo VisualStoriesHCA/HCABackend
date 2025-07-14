@@ -1,0 +1,67 @@
+{
+  "achievements": [
+    {
+      "achievementId": "1",
+      "title": "Storyteller",
+      "description": "Write your first 10 stories",
+      "category": "story_creation",
+      "type": "progress",
+      "imageUrl": "https://example.com/badges/storyteller.png",
+      "targetValue": 10,
+      "unit": "stories",
+      "reward": {
+        "points": 100,
+        "badge": "Bronze Storyteller"
+      },
+      "unlockCondition": null
+    },
+    {
+      "achievementId": "2",
+      "title": "Epic Novelist",
+      "description": "Write a story with at least 1000 characters",
+      "category": "creativity",
+      "type": "milestone",
+      "imageUrl": "https://example.com/badges/novelist.png",
+      "targetValue": 1000,
+      "unit": "characters",
+      "reward": {
+        "points": 250,
+        "badge": "Epic Novelist",
+        "unlocks": ["advanced_writing_tools"]
+      },
+      "unlockCondition": null
+    },
+    {
+      "achievementId": "3",
+      "title": "Master Editor",
+      "description": "Make 25 edits to your stories",
+      "category": "creativity",
+      "type": "progress",
+      "imageUrl": "https://example.com/badges/editor.png",
+      "state": "in_progress",
+      "targetValue": 25,
+      "unit": "edits",
+      "reward": {
+        "points": 150,
+        "badge": "Master Editor"
+      },
+      "unlockCondition": null
+    },
+    {
+      "achievementId": "4",
+      "title": "Consistent Creator",
+      "description": "Write stories for 7 consecutive days",
+      "category": "consistency",
+      "type": "progress",
+      "imageUrl": "https://example.com/badges/consistent.png",
+      "state": "locked",
+      "targetValue": 7,
+      "unit": "days",
+      "reward": {
+        "points": 300,
+        "badge": "Consistent Creator"
+      },
+      "unlockCondition": "Complete 'Storyteller' achievement"
+    }
+  ]
+}

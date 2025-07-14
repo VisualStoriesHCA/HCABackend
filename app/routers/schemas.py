@@ -35,6 +35,48 @@ ImageOperation = Union[NoChangeOperation, SketchFromScratchOperation, SketchOnIm
 class StoryState(str, Enum):
     pending = "pending"
     completed = "completed"
+    error = "error"
+
+
+# Achievement Enums
+class AchievementType(str, Enum):
+    progress = "progress"
+    milestone = "milestone"
+    binary = "binary"
+
+
+class AchievementState(str, Enum):
+    locked = "locked"
+    in_progress = "in_progress"
+    completed = "completed"
+
+
+# Achievement Models
+class AchievementReward(BaseModel):
+    points: Optional[int] = None
+    badge: Optional[str] = None
+    unlocks: Optional[List[str]] = None
+
+
+class UserAchievement(BaseModel):
+    achievementId: int
+    title: str
+    description: str
+    category: str
+    type: AchievementType
+    imageUrl: str
+    state: AchievementState
+    currentValue: int
+    targetValue: int
+    unit: str
+    completedAt: Optional[str] = None
+    reward: Optional[AchievementReward] = None
+    unlockCondition: Optional[str] = None
+
+
+class UserAchievementsResponse(BaseModel):
+    achievements: List[UserAchievement]
+
 
 # Request Models
 class CreateUserRequest(BaseModel):

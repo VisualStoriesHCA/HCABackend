@@ -16,7 +16,7 @@ from ..routers.schemas import (
     UserStoriesResponse, StoryBasicInfoResponse,
     StoryDetailsResponse, UpdateImagesByTextRequest,
     UpdateTextByImagesRequest, UploadImageRequest, StoryState,
-    GenerateAudioRequest
+    UserAchievementsResponse, GenerateAudioRequest
 )
 
 logger = logging.getLogger(__name__)
@@ -83,7 +83,9 @@ async def create_new_story(request: CreateNewStoryRequest, db: AsyncSession = De
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     story = user.create_story(story_name=request.storyName)
+    achievement = await user.update_achievement(achievementId="1", db=db)
     db.add(story)
+    db.add(achievement)
     await db.commit()
     await db.refresh(story)
     return story.to_story_basic_information()
@@ -128,6 +130,16 @@ async def get_story_by_id(userId: str, storyId: str, db: AsyncSession = Depends(
     return story.to_story_details_response()
 
 
+@router.get("/getUserAchievements", response_model=UserAchievementsResponse, operation_id="getUserAchievements")
+async def get_user_achievements(userId: str = Query(...), db: AsyncSession = Depends(get_async_db)):
+    # Verify user exists
+    result = await db.execute(select(User).filter_by(userId=userId))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return await user.get_achievements(db)
+
+
 @router.post("/updateImagesByText", response_model=StoryDetailsResponse, operation_id="updateImagesByText")
 async def update_images_by_text(request: UpdateImagesByTextRequest, db: AsyncSession = Depends(get_async_db)):
     result = await db.execute(select(Story).filter_by(storyId=request.storyId, userId=request.userId))
@@ -138,10 +150,32 @@ async def update_images_by_text(request: UpdateImagesByTextRequest, db: AsyncSes
     story.update_state(StoryState.pending)
     await db.commit()
     await db.refresh(story)
-    await story.update_images_by_text(request.updatedText)
+    try:
+        await story.update_images_by_text(request.updatedText)
+    except:
+        story.update_state(StoryState.error)
+        await db.commit()
+        await db.refresh(story)
+        raise HTTPException(status_code=400)
     story.update_state(StoryState.completed)
     await db.commit()
     await db.refresh(story)
+    result = await db.execute(select(User).filter_by(userId=request.userId))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    achievement = await user.update_achievement(achievementId="2", db=db, story=story)
+    db.add(achievement)
+    await db.commit()
+    await db.refresh(achievement)
+    achievement = await user.update_achievement(achievementId="3", db=db, story=story)
+    db.add(achievement)
+    await db.commit()
+    await db.refresh(achievement)
+    achievement = await user.update_achievement(achievementId="4", db=db, story=story)
+    db.add(achievement)
+    await db.commit()
+    await db.refresh(achievement)
     return story.to_story_details_response()
 
 
@@ -155,10 +189,32 @@ async def update_text_by_images(request: UpdateTextByImagesRequest, db: AsyncSes
     story.update_state(StoryState.pending)
     await db.commit()
     await db.refresh(story)
-    await story.update_from_image_operations([op.model_dump() for op in request.imageOperations])
+    try:
+        await story.update_from_image_operations([op.model_dump() for op in request.imageOperations])
+    except:
+        story.update_state(StoryState.error)
+        await db.commit()
+        await db.refresh(story)
+        raise HTTPException(status_code=400)
     story.update_state(StoryState.completed)
     await db.commit()
     await db.refresh(story)
+    result = await db.execute(select(User).filter_by(userId=request.userId))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    achievement = await user.update_achievement(achievementId="2", db=db, story=story)
+    db.add(achievement)
+    await db.commit()
+    await db.refresh(achievement)
+    achievement = await user.update_achievement(achievementId="3", db=db, story=story)
+    db.add(achievement)
+    await db.commit()
+    await db.refresh(achievement)
+    achievement = await user.update_achievement(achievementId="4", db=db, story=story)
+    db.add(achievement)
+    await db.commit()
+    await db.refresh(achievement)
     return story.to_story_details_response()
 
 
@@ -175,9 +231,9 @@ async def upload_image(request: UploadImageRequest, db: AsyncSession = Depends(g
     try:
         await story.upload_image(request.imageFile)
     except ValueError as e:
-        # Rollback the state change if image upload fails
-        story.update_state(StoryState.completed)
+        story.update_state(StoryState.error)
         await db.commit()
+        await db.refresh(story)
         raise HTTPException(status_code=400, detail=str(e))
     
     story.update_state(StoryState.completed)
@@ -195,7 +251,13 @@ async def generate_audio(request: GenerateAudioRequest, db: AsyncSession = Depen
     story.update_state(StoryState.pending)
     await db.commit()
     await db.refresh(story)
-    await story.generate_audio(request.text)
+    try:
+        await story.generate_audio(request.text)
+    except:
+        story.update_state(StoryState.error)
+        await db.commit()
+        await db.refresh(story)
+        raise HTTPException(status_code=400)
     story.update_state(StoryState.completed)
     await db.commit()
     await db.refresh(story)
