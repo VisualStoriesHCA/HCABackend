@@ -8,7 +8,7 @@ from typing import List, Dict
 
 from PIL import Image as PIL_Image
 from openai import AsyncOpenAI
-from sqlalchemy import Integer, select, update, Enum as SQLAlchemyEnum, and_
+from sqlalchemy import Integer, Boolean, select, update, Enum as SQLAlchemyEnum, and_
 from sqlalchemy import create_engine, Column, String, DateTime, ForeignKey, Enum as SqlEnum, Text
 from sqlalchemy.orm import relationship, sessionmaker
 
@@ -16,6 +16,9 @@ from ..models import utils
 from ..models.achievements import Achievement
 from ..models.base import Base
 from ..routers.schemas import StoryState, AchievementState
+
+from .settings import ImageModel, DrawingStyle, ColorBlindOption
+
 
 logger = logging.getLogger(__name__)
 
@@ -113,7 +116,7 @@ class Story(Base):
     __tablename__ = "stories"
     storyId = Column(String, primary_key=True)
     name = Column(String)
-    text = Column(Text, default="Type in your creative story...")
+    text = Column(Text, default="")
     coverageImage = Column(String, default="http://localhost:8080/assets/logos/new_story")
     lastEdited = Column(String, default=lambda: datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"))
     userId = Column(String, ForeignKey('users.userId'))
@@ -121,21 +124,36 @@ class Story(Base):
     state = Column(SQLAlchemyEnum(StoryState), default=StoryState.completed, nullable=False)
     audio_counter = Column(Integer, default=0)
     audio = Column(Text, default=None, nullable=True)
+    
+    imageModelId = Column(Integer, ForeignKey('image_models.imageModelId'), default=1)
+    drawingStyleId = Column(Integer, ForeignKey('drawing_styles.drawingStyleId'), default=2)
+    colorBlindOptionId = Column(Integer, ForeignKey('colorblind_options.colorBlindOptionId'), default=1)
+    regenerateImage = Column(Boolean, default=False)
 
     images = relationship("Image", backref="story", cascade="all, delete-orphan", lazy="selectin")
+    
+    imageModel = relationship("ImageModel", lazy="selectin")
+    drawingStyle = relationship("DrawingStyle", lazy="selectin")
+    colorBlindOption = relationship("ColorBlindOption", lazy="selectin")
 
     # --- Methods ---
 
     def to_dict(self):
         return {
             "storyId": self.storyId,
-            "coverImage": self.CoverageImage,
+            "coverImage": self.coverageImage,
             "storyName": self.name,
             "lastEdited": self.lastEdited,
             "storyText": self.get_formatted_text(),
             "state": self.state.value,
-            "storyImages": reversed([image.to_dict() for image in self.images]),
-            "audioUrl": self.audio
+            "storyImages": list(reversed([image.to_dict() for image in self.images])),
+            "audioUrl": self.audio,
+            "settings": {
+                "imageModelId": self.imageModelId,
+                "drawingStyleId": self.drawingStyleId,
+                "colorBlindOptionId": self.colorBlindOptionId,
+                "regenerateImage": self.regenerateImage
+            }
         }
 
     def to_story_basic_information(self):
@@ -152,8 +170,14 @@ class Story(Base):
             "storyName": self.name,
             "storyText": self.get_formatted_text(),
             "state": self.state.value,
-            "storyImages": reversed([image.to_dict() for image in self.images]),
-            "audioUrl": self.audio
+            "storyImages": list(reversed([image.to_dict() for image in self.images])),
+            "audioUrl": self.audio,
+            "settings": {
+                "imageModelId": self.imageModelId,
+                "drawingStyleId": self.drawingStyleId,
+                "colorBlindOptionId": self.colorBlindOptionId,
+                "regenerateImage": self.regenerateImage
+            }
         }
 
     def get_raw_text(self) -> str:
@@ -177,6 +201,17 @@ class Story(Base):
 
     def update_state(self, state: StoryState):
         self.state = state
+    
+    def update_settings(self, imageModelId=None, drawingStyleId=None, colorBlindOptionId=None, regenerateImage=None):
+        if imageModelId is not None:
+            self.imageModelId = imageModelId
+        if drawingStyleId is not None:
+            self.drawingStyleId = drawingStyleId
+        if colorBlindOptionId is not None:
+            self.colorBlindOptionId = colorBlindOptionId
+        if regenerateImage is not None:
+            self.regenerateImage = regenerateImage
+        self.lastEdited = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     async def update_images_by_text(self, new_text: str):
         self.set_raw_text(new_text)
@@ -275,16 +310,24 @@ class Story(Base):
             case Operation.SKETCH_FROM_SCRATCH:
                 logger.debug(f"Operation {Operation.SKETCH_FROM_SCRATCH}")
                 await self.upload_image(image_operation.canvas_data)
-                base64_image = await self.generate_image_sketch_from_scratch()
-                await self.upload_image(base64_image)
+                
+                # Only generate new image if regenerateImage is True
+                if self.regenerateImage:
+                    base64_image = await self.generate_image_sketch_from_scratch()
+                    await self.upload_image(base64_image)
+                
                 new_text = await self.generate_no_change_text_string()
                 self.set_formatted_text(new_text)
                 self.audio = None
             case Operation.SKETCH_ON_IMAGE:
                 logger.debug(f"Operation {Operation.SKETCH_ON_IMAGE}")
                 await self.upload_image(image_operation.canvas_data)
-                base64_image = await self.generate_image_sketch_on_image()
-                await self.upload_image(base64_image)
+                
+                # Only generate new image if regenerateImage is True
+                if self.regenerateImage:
+                    base64_image = await self.generate_image_sketch_on_image()
+                    await self.upload_image(base64_image)
+                
                 new_text = await self.generate_no_change_text_string()
                 self.set_formatted_text(new_text)
                 self.audio = None
@@ -306,8 +349,7 @@ class Story(Base):
         client = AsyncOpenAI(api_key=os.environ["OPENAI_API_TOKEN"])
         from ..models.openai_client import modify_image
         image_path = f"/etc/images/{self.userId}/{self.storyId}/{self.images[-1].imageId}.png"
-        # Modifying the sketch to become an image
-        return await modify_image(client, image_path)
+        return await modify_image(client, image_path, None, self.drawingStyleId, self.colorBlindOptionId)
 
     async def generate_image_sketch_on_image(self) -> str:
         logger.debug("Calling 'generate_image_sketch_on_image'")
@@ -315,10 +357,9 @@ class Story(Base):
         from ..models.openai_client import modify_image
         image_path = f"/etc/images/{self.userId}/{self.storyId}/{self.images[-1].imageId}.png"
         original_text = self.get_raw_text()
-        # Modifying the image by sketching on it
         logger.debug("Calling 'modify_image'")
         logger.debug(f"Story: {original_text}")
-        return await modify_image(client, image_path, original_text)
+        return await modify_image(client, image_path, original_text, self.drawingStyleId, self.colorBlindOptionId)
 
     async def modify_image_from_text(self, text="") -> str:
         client = AsyncOpenAI(api_key=os.environ["OPENAI_API_TOKEN"])
@@ -330,9 +371,9 @@ class Story(Base):
             file_path = Path(image_path)
 
         if file_path and file_path.exists():
-            return await modify_image(client, image_path, text)
+            return await modify_image(client, image_path, text, self.drawingStyleId, self.colorBlindOptionId)
         else:
-            return await story_to_image(client, text)
+            return await story_to_image(client, text, self.drawingStyleId, self.colorBlindOptionId)
 
 
 class User(Base):
@@ -430,3 +471,4 @@ class User(Base):
                         user_ach.completedAt = datetime.utcnow()
 
         return user_ach
+

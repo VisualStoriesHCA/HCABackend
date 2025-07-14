@@ -9,6 +9,7 @@ from sqlalchemy.future import select
 from ..models.db import async_session
 from ..models.structures import User, Story
 from ..models.utils import generate_user_id
+from ..models.settings import ImageModel, DrawingStyle, ColorBlindOption
 from ..routers.schemas import (
     CreateUserRequest, UserResponse,
     DeleteUserRequest, CreateNewStoryRequest,
@@ -16,7 +17,8 @@ from ..routers.schemas import (
     UserStoriesResponse, StoryBasicInfoResponse,
     StoryDetailsResponse, UpdateImagesByTextRequest,
     UpdateTextByImagesRequest, UploadImageRequest, StoryState,
-    UserAchievementsResponse, GenerateAudioRequest
+    UserAchievementsResponse, GenerateAudioRequest,
+    AvailableSettingsResponse, SetStoryOptionsRequest
 )
 
 logger = logging.getLogger(__name__)
@@ -211,4 +213,99 @@ async def generate_audio(request: GenerateAudioRequest, db: AsyncSession = Depen
     story.update_state(StoryState.completed)
     await db.commit()
     await db.refresh(story)
+    return story.to_story_details_response()
+
+@router.get("/getAvailableSettings", response_model=AvailableSettingsResponse, operation_id="getAvailableSettings")
+async def get_available_settings(db: AsyncSession = Depends(get_async_db)):
+    """
+    Get all available settings options for stories including image models, 
+    drawing styles, and colorblind options.
+    """
+    # Get all image models
+    image_models_result = await db.execute(select(ImageModel))
+    image_models = image_models_result.scalars().all()
+    
+    # Get all drawing styles
+    drawing_styles_result = await db.execute(select(DrawingStyle))
+    drawing_styles = drawing_styles_result.scalars().all()
+    
+    # Get all colorblind options
+    colorblind_options_result = await db.execute(select(ColorBlindOption))
+    colorblind_options = colorblind_options_result.scalars().all()
+    
+    return AvailableSettingsResponse(
+        availableImageModels=[model.to_dict() for model in image_models],
+        availableDrawingStyles=[style.to_dict() for style in drawing_styles],
+        colorBlindOptions=[option.to_dict() for option in colorblind_options]
+    )
+
+
+@router.post("/setStoryOptions", response_model=StoryDetailsResponse, operation_id="setStoryOptions")
+async def set_story_options(request: SetStoryOptionsRequest, db: AsyncSession = Depends(get_async_db)):
+    """
+    Update the settings (image model, drawing style, colorblind option) for a specific story.
+    """
+    # Get the story
+    result = await db.execute(select(Story).filter_by(storyId=request.storyId, userId=request.userId))
+    story = result.scalar_one_or_none()
+    if not story:
+        raise HTTPException(status_code=404, detail="Story not found")
+    
+    # Validate imageModelId if provided
+    if request.imageModelId is not None:
+        image_model_result = await db.execute(
+            select(ImageModel).where(ImageModel.imageModelId == request.imageModelId)
+        )
+        image_model = image_model_result.scalar_one_or_none()
+        if not image_model:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Invalid imageModelId: {request.imageModelId}"
+            )
+        if image_model.disabled:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Image model '{image_model.name}' is currently disabled"
+            )
+    
+    # Validate drawingStyleId if provided
+    if request.drawingStyleId is not None:
+        drawing_style_result = await db.execute(
+            select(DrawingStyle).where(DrawingStyle.drawingStyleId == request.drawingStyleId)
+        )
+        drawing_style = drawing_style_result.scalar_one_or_none()
+        if not drawing_style:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Invalid drawingStyleId: {request.drawingStyleId}"
+            )
+        if drawing_style.disabled:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Drawing style '{drawing_style.name}' is currently disabled"
+            )
+    
+    # Validate colorBlindOptionId if provided
+    if request.colorBlindOptionId is not None:
+        colorblind_option_result = await db.execute(
+            select(ColorBlindOption).where(ColorBlindOption.colorBlindOptionId == request.colorBlindOptionId)
+        )
+        colorblind_option = colorblind_option_result.scalar_one_or_none()
+        if not colorblind_option:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Invalid colorBlindOptionId: {request.colorBlindOptionId}"
+            )
+    
+    # Update the story settings
+    story.update_settings(
+        imageModelId=request.imageModelId,
+        drawingStyleId=request.drawingStyleId,
+        colorBlindOptionId=request.colorBlindOptionId,
+        regenerateImage=request.regenerateImage
+    )
+    
+    await db.commit()
+    await db.refresh(story)
+    
     return story.to_story_details_response()

@@ -1,23 +1,42 @@
 # app/main.py
 import logging
+import os
 
 from logging.handlers import RotatingFileHandler
 
-handler = RotatingFileHandler(
-    filename="/etc/logs/app.log",
-    mode="a",
-    maxBytes=1024 * 1000,
-    backupCount=10
-)
+# Create logs directory if it doesn't exist
+os.makedirs("/etc/logs", exist_ok=True)
 
-formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(name)s - %(message)s")
-handler.setFormatter(formatter)
-
+# Configure logging with both file and console handlers
 logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
-logger.addHandler(handler)
 
-import os
+# Create formatter
+formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(name)s - %(message)s")
+
+# File handler (your existing setup)
+try:
+    file_handler = RotatingFileHandler(
+        filename="/etc/logs/app.log",
+        mode="a",
+        maxBytes=1024 * 1000,
+        backupCount=10
+    )
+    file_handler.setFormatter(formatter)
+    file_handler.setLevel(logging.DEBUG)
+    logger.addHandler(file_handler)
+    print("File logging configured: /etc/logs/app.log")
+except Exception as e:
+    print(f"File logging failed: {e}")
+
+# Console handler (NEW - this will show logs in your terminal)
+console_handler = logging.StreamHandler()
+console_handler.setFormatter(formatter)
+console_handler.setLevel(logging.INFO)  # You can change to DEBUG for more verbose
+logger.addHandler(console_handler)
+print("SUCCESS - Console logging configured")
+
+
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
@@ -26,7 +45,7 @@ from fastapi.responses import FileResponse
 from fastapi.responses import JSONResponse
 
 from .config import settings
-from .models.db import init_models, load_achievements_from_json
+from .models.db import init_models, load_achievements_from_json, load_settings_from_json
 from .routers import items
 
 app = FastAPI(
@@ -51,6 +70,7 @@ app.include_router(items.router)
 @app.on_event("startup")
 async def on_startup():
     await init_models()
+    await load_settings_from_json()
     await load_achievements_from_json()
 
 

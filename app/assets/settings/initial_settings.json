@@ -1,0 +1,74 @@
+{
+  "imageModels": [
+    {
+      "imageModelId": 1,
+      "name": "OpenAI Image 1",
+      "description": "The current best model for image generation",
+      "disabled": false
+    },
+    {
+      "imageModelId": 2,
+      "name": "UltraHD",
+      "description": "Highest quality but slower processing",
+      "disabled": true
+    },
+    {
+      "imageModelId": 3,
+      "name": "OpenAI DALL-E",
+      "description": "OpenAI's advanced image generation model",
+      "disabled": true
+    }
+  ],
+  "drawingStyles": [
+    {
+      "drawingStyleId": 1,
+      "name": "Photorealistic",
+      "description": "Creates highly realistic images",
+      "exampleImageUrl": "https://example.com/styles/photorealistic.jpg",
+      "disabled": false
+    },
+    {
+      "drawingStyleId": 2,
+      "name": "Cartoon",
+      "description": "Animated cartoon-style rendering",
+      "exampleImageUrl": "https://example.com/styles/cartoon.jpg",
+      "disabled": false
+    },
+    {
+      "drawingStyleId": 3,
+      "name": "Sketch",
+      "description": "Hand-drawn sketch style",
+      "exampleImageUrl": "https://example.com/styles/sketch.jpg",
+      "disabled": false
+    },
+    {
+      "drawingStyleId": 4,
+      "name": "Oil Painting",
+      "description": "Classical oil painting style",
+      "exampleImageUrl": "https://example.com/styles/oil_painting.jpg",
+      "disabled": false
+    }
+  ],
+  "colorBlindOptions": [
+    {
+      "colorBlindOptionId": 1,
+      "name": "None",
+      "description": "No color adjustments applied"
+    },
+    {
+      "colorBlindOptionId": 2,
+      "name": "Protanopia",
+      "description": "Red-blind - avoids red-green color combinations"
+    },
+    {
+      "colorBlindOptionId": 3,
+      "name": "Deuteranopia",
+      "description": "Green-blind - avoids red-green color combinations"
+    },
+    {
+      "colorBlindOptionId": 4,
+      "name": "Tritanopia",
+      "description": "Blue-blind - avoids blue-yellow color combinations"
+    }
+  ]
+}
