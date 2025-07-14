@@ -446,4 +446,20 @@ class User(Base):
                         user_ach.state = AchievementState.completed
                         user_ach.completedAt = datetime.utcnow()
 
+            case "3":
+                if user_ach is None:
+                    user_ach = UserAchievement(
+                        userId=self.userId,
+                        achievementId=achievementId,
+                        state=AchievementState.in_progress,
+                        currentValue=1,
+                        completedAt=None,
+                        achievement=base_ach
+                    )
+                else:
+                    user_ach.currentValue += 1
+                    if user_ach.currentValue >= 25:
+                        user_ach.state = AchievementState.completed
+                        user_ach.completedAt = datetime.utcnow()
+
         return user_ach

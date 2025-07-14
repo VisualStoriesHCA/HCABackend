@@ -162,6 +162,10 @@ async def update_images_by_text(request: UpdateImagesByTextRequest, db: AsyncSes
     db.add(achievement)
     await db.commit()
     await db.refresh(achievement)
+    achievement = await user.update_achievement(achievementId="3", db=db, story=story)
+    db.add(achievement)
+    await db.commit()
+    await db.refresh(achievement)
     return story.to_story_details_response()
 
 
@@ -184,6 +188,10 @@ async def update_text_by_images(request: UpdateTextByImagesRequest, db: AsyncSes
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     achievement = await user.update_achievement(achievementId="2", db=db, story=story)
+    db.add(achievement)
+    await db.commit()
+    await db.refresh(achievement)
+    achievement = await user.update_achievement(achievementId="3", db=db, story=story)
     db.add(achievement)
     await db.commit()
     await db.refresh(achievement)
