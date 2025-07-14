@@ -2,7 +2,7 @@ import base64
 import logging
 import os
 import re
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from enum import Enum
 from typing import List, Dict
 
@@ -85,6 +85,7 @@ class UserAchievement(Base):
     state = Column(SQLAlchemyEnum(AchievementState), default=AchievementState.locked)
     currentValue = Column(Integer, default=0)
     completedAt = Column(DateTime, nullable=True)
+    lastUpdate = Column(DateTime, nullable=True)
 
     achievement = relationship("Achievement", lazy="selectin")
 
@@ -391,7 +392,8 @@ class User(Base):
                     state=AchievementState.locked,
                     currentValue=0,
                     completedAt=None,
-                    achievement=base_ach
+                    achievement=base_ach,
+                    lastUpdate=None
                 )
                 result.append(virtual_ua.to_dict())
 
@@ -411,7 +413,7 @@ class User(Base):
             )
         )
         user_ach = result.scalar_one_or_none()
-
+        current_time = datetime.now(timezone.utc)
         match achievementId:
             case "1":
                 if user_ach is None:
@@ -421,13 +423,15 @@ class User(Base):
                         state=AchievementState.in_progress,
                         currentValue=1,
                         completedAt=None,
-                        achievement=base_ach
+                        achievement=base_ach,
+                        lastUpdate=current_time
                     )
                 else:
                     user_ach.currentValue += 1
+                    user_ach.lastUpdate = current_time
                     if user_ach.currentValue >= 10:
                         user_ach.state = AchievementState.completed
-                        user_ach.completedAt = datetime.utcnow()
+                        user_ach.completedAt = current_time
 
             case "2":
                 number_words = len(story.get_raw_text().replace("<br>", "").strip().replace(" ", ""))
@@ -438,13 +442,15 @@ class User(Base):
                         state=AchievementState.in_progress,
                         currentValue=number_words,
                         completedAt=None,
-                        achievement=base_ach
+                        achievement=base_ach,
+                        lastUpdate=current_time
                     )
                 else:
                     user_ach.currentValue = max(user_ach.currentValue, number_words)
+                    user_ach.lastUpdate = current_time
                     if user_ach.currentValue >= 1000:
                         user_ach.state = AchievementState.completed
-                        user_ach.completedAt = datetime.utcnow()
+                        user_ach.completedAt = current_time
 
             case "3":
                 if user_ach is None:
@@ -454,12 +460,35 @@ class User(Base):
                         state=AchievementState.in_progress,
                         currentValue=1,
                         completedAt=None,
-                        achievement=base_ach
+                        achievement=base_ach,
+                        lastUpdate=current_time
                     )
                 else:
                     user_ach.currentValue += 1
+                    user_ach.lastUpdate = current_time
                     if user_ach.currentValue >= 25:
                         user_ach.state = AchievementState.completed
-                        user_ach.completedAt = datetime.utcnow()
+                        user_ach.completedAt = current_time
+            case "4":
+                if user_ach is None:
+                    user_ach = UserAchievement(
+                        userId=self.userId,
+                        achievementId=achievementId,
+                        state=AchievementState.in_progress,
+                        currentValue=1,
+                        completedAt=None,
+                        achievement=base_ach,
+                        lastUpdate=current_time
+                    )
+                else:
+                    if user_ach.lastUpdate.tzinfo is None:
+                        user_ach.lastUpdate = user_ach.lastUpdate.replace(tzinfo=timezone.utc)
+                    delta = current_time - user_ach.lastUpdate
+                    if delta >= timedelta(minutes=1):
+                        user_ach.currentValue += 1
+                        user_ach.lastUpdate = current_time
+                    if user_ach.currentValue >= 7:
+                        user_ach.state = AchievementState.completed
+                        user_ach.completedAt = current_time
 
         return user_ach
