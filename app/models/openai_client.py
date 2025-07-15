@@ -42,19 +42,18 @@ async def image_to_story(client, path, original_text=None):
     logger.info(f"Original text: {original_text}")
 
     if original_text:
-        prompt = f"""You are a creative writing assistant helping users develop stories from their sketches. 
+        prompt = f"""You are a creative writing assistant helping users develop stories from their sketch images. 
 
-I have an existing story and a new sketch drawing that the user created. Please update the story to match what's shown in the sketch while keeping as much of the original text as possible.
+I have an existing story and a new sketch image drawing that the user created. Please update the story to match what's shown in the sketch while keeping as much of the original text as possible.
 
 Original story: "{original_text}"
-
-Please look at the user's sketch and update the story to reflect what's drawn, making only the necessary changes to match the new visual elements. Keep the same writing style, structure, and tone. Return only the updated story text."""
+Please look at the user's sketch image and update the story to reflect what's drawn, making only the necessary changes to match the new visual elements. Keep the same writing style, structure, and tone. Return only the updated story text."""
     else:
-        prompt = """You are a creative writing assistant helping users create stories from their sketches.
+        prompt = """You are a creative writing assistant helping users create stories from their sketch images.
 
-Please look at this user-created sketch and write a creative short story based on what you see. The sketch may be simple or rough - that's perfectly fine. Focus on the main elements, characters, or scenes you can identify and create an engaging story around them.
+Please look at this user-created sketch image and write a creative short story based on what you see. The sketch image may be simple or rough - that's perfectly fine. Focus on the main elements, characters, or scenes you can identify and create an engaging story around them.
 
-Please write a short story (2-4 sentences) that brings this sketch to life. Return only the story text."""
+Please write a short story (2-4 sentences) that brings this sketch image to life. Return only the story text."""
 
     response = await client.chat.completions.create(
         model="gpt-4o",
@@ -113,7 +112,7 @@ async def story_to_image(client, story, drawing_style_id=2, colorblind_option_id
     colorblind_prompt = get_colorblind_prompt(colorblind_option_id)
     
     # Build dynamic prompt
-    prompt = f"Please draw a colored sketch or image for the provided story using a {style_prompt} style. Try not to draw any text on the image from the story. The sketch should contain several scenes going one after another. Keep it in a simple schematic way. and make the least number of changes possible."
+    prompt = f"Please draw a colored sketch or image for the provided story using a {style_prompt} style. Try not to draw any text on the image from the story. The sketch image should contain several scenes going one after another. Keep it in a simple schematic way. and make the least number of changes possible."
     
     # Add colorblind considerations if needed
     if colorblind_prompt:
@@ -139,7 +138,7 @@ async def modify_image(client, image_path, text=None, drawing_style_id=2, colorb
     colorblind_prompt = get_colorblind_prompt(colorblind_option_id)
     
     # Build dynamic prompt
-    prompt = f"Generate from this sketch a story using a {style_prompt} style. try to separate the frames with the arrows and do not change the number of frames. please do not change the number of frames. and make the least number of changes possible"
+    prompt = f"Generate from this sketch image a story using a {style_prompt} style. try to separate the frames with the arrows and do not change the number of frames. please do not change the number of frames. and make the least number of changes possible"
     
     # Add colorblind considerations if needed
     if colorblind_prompt:

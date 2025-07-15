@@ -129,7 +129,7 @@ class Story(Base):
     imageModelId = Column(Integer, ForeignKey('image_models.imageModelId'), default=1)
     drawingStyleId = Column(Integer, ForeignKey('drawing_styles.drawingStyleId'), default=2)
     colorBlindOptionId = Column(Integer, ForeignKey('colorblind_options.colorBlindOptionId'), default=1)
-    regenerateImage = Column(Boolean, default=False)
+    regenerateImage = Column(Boolean, default=True)
 
     images = relationship("Image", backref="story", cascade="all, delete-orphan", lazy="selectin")
     
