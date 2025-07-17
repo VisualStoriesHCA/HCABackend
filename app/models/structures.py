@@ -285,9 +285,10 @@ class Story(Base):
         self.lastEdited = datetime.now(timezone.utc)
 
     async def generate_audio(self, text: str):
-        if self.audio and text == self.get_raw_text():
+        new_raw_text = utils.get_raw_text(text)
+        if self.audio and new_raw_text == self.get_raw_text():
             return
-        self.text = text
+        self.set_raw_text(new_raw_text)
         self.audio_counter += 1
         audio_id = f"aud_{self.storyId}_{self.audio_counter}"
         dir_path = f"/etc/audio/{self.userId}/{self.storyId}"
@@ -295,7 +296,7 @@ class Story(Base):
         audio_filename = f"{audio_id}.wav"
         from ..models.openai_client import text_to_speech
         client = AsyncOpenAI(api_key=os.environ["OPENAI_API_TOKEN"])
-        audio_wav = await text_to_speech(client, text)
+        audio_wav = await text_to_speech(client, new_raw_text)
         with open(os.path.join(dir_path, audio_filename), "wb") as audio_file:
             audio_file.write(audio_wav)
         self.lastEdited = datetime.now(timezone.utc)
