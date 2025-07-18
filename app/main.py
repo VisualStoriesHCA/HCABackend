@@ -19,8 +19,8 @@ try:
     file_handler = RotatingFileHandler(
         filename="/etc/logs/app.log",
         mode="a",
-        maxBytes=1024 * 1000,
-        backupCount=10
+        maxBytes=1024 * 10000,
+        backupCount=100
     )
     file_handler.setFormatter(formatter)
     file_handler.setLevel(logging.DEBUG)

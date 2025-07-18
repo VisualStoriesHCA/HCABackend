@@ -7,9 +7,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
 from ..models.db import async_session
+from ..models.settings import ImageModel, DrawingStyle, ColorBlindOption
 from ..models.structures import User, Story
 from ..models.utils import generate_user_id
-from ..models.settings import ImageModel, DrawingStyle, ColorBlindOption
 from ..routers.schemas import (
     CreateUserRequest, UserResponse,
     DeleteUserRequest, CreateNewStoryRequest,
@@ -183,7 +183,7 @@ async def update_images_by_text(request: UpdateImagesByTextRequest, db: AsyncSes
 
 @router.post("/updateTextByImages", response_model=StoryDetailsResponse, operation_id="updateTextByImages")
 async def update_text_by_images(request: UpdateTextByImagesRequest, db: AsyncSession = Depends(get_async_db)):
-    logger.debug(f"Calling '/updateTextByImages'")
+    logger.debug(f"Calling '/updateTextByImages' with request {request}")
     result = await db.execute(select(Story).filter_by(storyId=request.storyId, userId=request.userId))
     story = result.scalar_one_or_none()
     if not story:
@@ -191,16 +191,19 @@ async def update_text_by_images(request: UpdateTextByImagesRequest, db: AsyncSes
     story.update_state(StoryState.pending)
     await db.commit()
     await db.refresh(story)
+    logger.debug(f"Story - {story} - state has been updated to pending.")
     try:
         await story.update_from_image_operations([op.model_dump() for op in request.imageOperations])
     except:
         story.update_state(StoryState.error)
         await db.commit()
         await db.refresh(story)
+        logger.debug(f"Story - {story} - state has been updated to error.")
         raise HTTPException(status_code=400)
     story.update_state(StoryState.completed)
     await db.commit()
     await db.refresh(story)
+    logger.debug(f"Story - {story} - state has been updated to completed.")
     result = await db.execute(select(User).filter_by(userId=request.userId))
     user = result.scalar_one_or_none()
     if not user:

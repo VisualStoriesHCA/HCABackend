@@ -8,17 +8,14 @@ from typing import List, Dict
 
 from PIL import Image as PIL_Image
 from openai import AsyncOpenAI
-from sqlalchemy import Integer, Boolean, select, update, Enum as SQLAlchemyEnum, and_
-from sqlalchemy import create_engine, Column, String, DateTime, ForeignKey, Enum as SqlEnum, Text
-from sqlalchemy.orm import relationship, sessionmaker
+from sqlalchemy import Column, String, DateTime, ForeignKey, Text
+from sqlalchemy import Integer, Boolean, select, Enum as SQLAlchemyEnum, and_
+from sqlalchemy.orm import relationship
 
 from ..models import utils
 from ..models.achievements import Achievement
 from ..models.base import Base
 from ..routers.schemas import StoryState, AchievementState
-
-from .settings import ImageModel, DrawingStyle, ColorBlindOption
-
 
 logger = logging.getLogger(__name__)
 
@@ -241,6 +238,7 @@ class Story(Base):
             self.name = story_title
 
     async def upload_image(self, image_binary: str):
+        logger.debug(f"Calling `upload_image`...")
         self.image_counter +=1
         image_id = f"img_{self.storyId}_{self.image_counter}"
         dir_path = f"/etc/images/{self.userId}/{self.storyId}"
@@ -283,6 +281,7 @@ class Story(Base):
 
         self.images.append(new_image)
         self.lastEdited = datetime.now(timezone.utc)
+        logger.debug(f"Image was successfully uploaded.")
 
     async def generate_audio(self, text: str):
         new_raw_text = utils.get_raw_text(text)
@@ -303,6 +302,7 @@ class Story(Base):
         self.audio = f"http://localhost:8080/audio/{self.userId}/{self.storyId}/{audio_id}"
 
     async def execute_image_operation(self, image_operation: ImageOperation):
+        logger.debug(f"Calling `execute_image_operation` with operation {image_operation.operation}")
         match image_operation.operation:
             case Operation.NO_CHANGE:
                 logger.debug(f"Operation {Operation.NO_CHANGE}")
@@ -314,6 +314,7 @@ class Story(Base):
                 await self.upload_image(image_operation.canvas_data)
                 
                 # Only generate new image if regenerateImage is True
+                logger.debug(f"`regenerateImage` is set to {self.regenerateImage}")
                 if self.regenerateImage:
                     base64_image = await self.generate_image_sketch_from_scratch()
                     await self.upload_image(base64_image)
@@ -341,20 +342,28 @@ class Story(Base):
             await self.execute_image_operation(image_operation)
 
     async def generate_no_change_text_string(self):
+        logger.debug("Calling 'generate_no_change_text_string'")
+        logger.debug(f"Creating OpenAI client...")
         client = AsyncOpenAI(api_key=os.environ["OPENAI_API_TOKEN"])
         image_path = f"/etc/images/{self.userId}/{self.storyId}/{self.images[-1].imageId}.png"
         from ..models.openai_client import image_to_story
         original_text = self.get_raw_text()
+        logger.debug("Calling 'image_to_story'")
         return await image_to_story(client, image_path, original_text)
 
     async def generate_image_sketch_from_scratch(self) -> str:
+        logger.debug("Calling 'generate_image_sketch_from_scratch'")
+        logger.debug(f"Creating OpenAI client...")
         client = AsyncOpenAI(api_key=os.environ["OPENAI_API_TOKEN"])
+        logger.debug(f"OpenAI client created successfully!")
         from ..models.openai_client import modify_image
         image_path = f"/etc/images/{self.userId}/{self.storyId}/{self.images[-1].imageId}.png"
+        logger.debug("Calling 'modify_image'")
         return await modify_image(client, image_path, None, self.drawingStyleId, self.colorBlindOptionId)
 
     async def generate_image_sketch_on_image(self) -> str:
         logger.debug("Calling 'generate_image_sketch_on_image'")
+        logger.debug(f"Creating OpenAI client...")
         client = AsyncOpenAI(api_key=os.environ["OPENAI_API_TOKEN"])
         from ..models.openai_client import modify_image
         image_path = f"/etc/images/{self.userId}/{self.storyId}/{self.images[-1].imageId}.png"
