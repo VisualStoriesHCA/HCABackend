@@ -139,14 +139,23 @@ async def modify_image(client, image_path, text=None, drawing_style_id=2, colorb
     colorblind_prompt = get_colorblind_prompt(colorblind_option_id)
 
     # Build dynamic prompt
-    prompt = f"Generate from this sketch image a story using a {style_prompt} style. try to separate the frames with the arrows and do not change the number of frames. please do not change the number of frames. and make the least number of changes possible"
+    prompt = (
+        f"Modify this sketch image in the {style_prompt} style. "
+        "Keep the number of frames exactly the same and separated clearly by the arrows. "
+        "Do not add or remove any frames. Make only the minimal visual changes necessary to improve or interpret the image in the requested style. "
+        "Preserve the original composition and drawing as much as possible."
+    )
 
     # Add colorblind considerations if needed
     if colorblind_prompt:
-        prompt += f" {colorblind_prompt}"
+        prompt += f" Apply the following visual accessibility considerations: {colorblind_prompt}. "
 
+    # Add text handling
     if text:
-        prompt += f" this is the text, make only the necessary changes: {text} but do not write the text on the picture"
+        prompt += (
+            f" The user provided the following text as reference: '{text}'. "
+            "Use it only as context. Do not write this text on the image unless it is already part of the original sketch."
+        )
 
     response = await client.images.edit(
         model="gpt-image-1",
