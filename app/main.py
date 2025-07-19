@@ -36,7 +36,6 @@ console_handler.setLevel(logging.INFO)  # You can change to DEBUG for more verbo
 logger.addHandler(console_handler)
 print("SUCCESS - Console logging configured")
 
-
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware

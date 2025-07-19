@@ -1,7 +1,6 @@
 import json
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import sessionmaker
@@ -9,8 +8,6 @@ from sqlalchemy.orm import sessionmaker
 from ..models.achievements import Achievement
 from ..models.base import Base
 from ..models.settings import ImageModel, DrawingStyle, ColorBlindOption
-
-
 
 engine = create_async_engine('sqlite+aiosqlite:///data/app.db', echo=True)
 async_session = sessionmaker(

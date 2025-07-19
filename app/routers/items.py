@@ -34,7 +34,8 @@ async def get_async_db():
         yield session
 
 
-@router.post("/createNewUser", status_code=status.HTTP_201_CREATED, response_model=UserResponse, operation_id="createNewUser")
+@router.post("/createNewUser", status_code=status.HTTP_201_CREATED, response_model=UserResponse,
+             operation_id="createNewUser")
 async def create_new_user(request: CreateUserRequest, db: AsyncSession = Depends(get_async_db)):
     user_id = generate_user_id(request.userName)
     result = await db.execute(select(User).filter_by(userId=user_id))
@@ -232,7 +233,7 @@ async def upload_image(request: UploadImageRequest, db: AsyncSession = Depends(g
     story.update_state(StoryState.pending)
     await db.commit()
     await db.refresh(story)
-    
+
     try:
         await story.upload_image(request.imageFile)
     except ValueError as e:
@@ -240,7 +241,7 @@ async def upload_image(request: UploadImageRequest, db: AsyncSession = Depends(g
         await db.commit()
         await db.refresh(story)
         raise HTTPException(status_code=400, detail=str(e))
-    
+
     story.update_state(StoryState.completed)
     await db.commit()
     await db.refresh(story)
@@ -268,6 +269,7 @@ async def generate_audio(request: GenerateAudioRequest, db: AsyncSession = Depen
     await db.refresh(story)
     return story.to_story_details_response()
 
+
 @router.get("/getAvailableSettings", response_model=AvailableSettingsResponse, operation_id="getAvailableSettings")
 async def get_available_settings(db: AsyncSession = Depends(get_async_db)):
     """
@@ -277,15 +279,15 @@ async def get_available_settings(db: AsyncSession = Depends(get_async_db)):
     # Get all image models
     image_models_result = await db.execute(select(ImageModel))
     image_models = image_models_result.scalars().all()
-    
+
     # Get all drawing styles
     drawing_styles_result = await db.execute(select(DrawingStyle))
     drawing_styles = drawing_styles_result.scalars().all()
-    
+
     # Get all colorblind options
     colorblind_options_result = await db.execute(select(ColorBlindOption))
     colorblind_options = colorblind_options_result.scalars().all()
-    
+
     return AvailableSettingsResponse(
         availableImageModels=[model.to_dict() for model in image_models],
         availableDrawingStyles=[style.to_dict() for style in drawing_styles],
@@ -303,7 +305,7 @@ async def set_story_options(request: SetStoryOptionsRequest, db: AsyncSession = 
     story = result.scalar_one_or_none()
     if not story:
         raise HTTPException(status_code=404, detail="Story not found")
-    
+
     # Validate imageModelId if provided
     if request.imageModelId is not None:
         image_model_result = await db.execute(
@@ -312,15 +314,15 @@ async def set_story_options(request: SetStoryOptionsRequest, db: AsyncSession = 
         image_model = image_model_result.scalar_one_or_none()
         if not image_model:
             raise HTTPException(
-                status_code=400, 
+                status_code=400,
                 detail=f"Invalid imageModelId: {request.imageModelId}"
             )
         if image_model.disabled:
             raise HTTPException(
-                status_code=400, 
+                status_code=400,
                 detail=f"Image model '{image_model.name}' is currently disabled"
             )
-    
+
     # Validate drawingStyleId if provided
     if request.drawingStyleId is not None:
         drawing_style_result = await db.execute(
@@ -329,15 +331,15 @@ async def set_story_options(request: SetStoryOptionsRequest, db: AsyncSession = 
         drawing_style = drawing_style_result.scalar_one_or_none()
         if not drawing_style:
             raise HTTPException(
-                status_code=400, 
+                status_code=400,
                 detail=f"Invalid drawingStyleId: {request.drawingStyleId}"
             )
         if drawing_style.disabled:
             raise HTTPException(
-                status_code=400, 
+                status_code=400,
                 detail=f"Drawing style '{drawing_style.name}' is currently disabled"
             )
-    
+
     # Validate colorBlindOptionId if provided
     if request.colorBlindOptionId is not None:
         colorblind_option_result = await db.execute(
@@ -346,10 +348,10 @@ async def set_story_options(request: SetStoryOptionsRequest, db: AsyncSession = 
         colorblind_option = colorblind_option_result.scalar_one_or_none()
         if not colorblind_option:
             raise HTTPException(
-                status_code=400, 
+                status_code=400,
                 detail=f"Invalid colorBlindOptionId: {request.colorBlindOptionId}"
             )
-    
+
     # Update the story settings
     story.update_settings(
         imageModelId=request.imageModelId,
@@ -357,8 +359,8 @@ async def set_story_options(request: SetStoryOptionsRequest, db: AsyncSession = 
         colorBlindOptionId=request.colorBlindOptionId,
         regenerateImage=request.regenerateImage
     )
-    
+
     await db.commit()
     await db.refresh(story)
-    
+
     return story.to_story_details_response()

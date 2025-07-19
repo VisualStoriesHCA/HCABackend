@@ -3,8 +3,8 @@
 import logging
 
 from openai import AsyncOpenAI
+from sqlalchemy import Column, String, Text
 from sqlalchemy import Integer
-from sqlalchemy import create_engine, Column, String, DateTime, ForeignKey, Enum as SqlEnum, Text
 
 from ..models.base import Base
 

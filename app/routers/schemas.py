@@ -150,11 +150,13 @@ class ImageResponse(BaseModel):
     url: str
     alt: str
 
+
 class StorySettings(BaseModel):
     imageModelId: int
     drawingStyleId: int
     colorBlindOptionId: int
     regenerateImage: bool
+
 
 class StoryDetailsResponse(BaseModel):
     storyId: str
@@ -163,11 +165,12 @@ class StoryDetailsResponse(BaseModel):
     state: StoryState
     storyImages: List[ImageResponse]
     audioUrl: Optional[str] = None
-    settings: StorySettings  
+    settings: StorySettings
 
 
 class UserStoriesResponse(BaseModel):
     stories: List[StoryBasicInfoResponse]
+
 
 class ImageModelResponse(BaseModel):
     imageModelId: int
@@ -194,7 +197,6 @@ class AvailableSettingsResponse(BaseModel):
     availableImageModels: List[ImageModelResponse]
     availableDrawingStyles: List[DrawingStyleResponse]
     colorBlindOptions: List[ColorBlindOptionResponse]
-
 
 
 # Request Models

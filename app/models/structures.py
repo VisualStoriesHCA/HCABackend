@@ -19,6 +19,7 @@ from ..routers.schemas import StoryState, AchievementState
 
 logger = logging.getLogger(__name__)
 
+
 class Operation(Enum):
     NO_CHANGE = 1
     SKETCH_FROM_SCRATCH = 2
@@ -52,11 +53,11 @@ class ImageOperation:
             case Operation.NO_CHANGE:
                 image_operation.image_id = image_operation_dict["imageId"]
             case Operation.SKETCH_FROM_SCRATCH:
-                image_operation.canvas_data= image_operation_dict["canvasData"]
+                image_operation.canvas_data = image_operation_dict["canvasData"]
             case Operation.SKETCH_ON_IMAGE:
                 image_operation.image_id = image_operation_dict["imageId"]
                 image_operation.canvas_data = image_operation_dict["canvasData"]
-            case _ :
+            case _:
                 raise Exception(f"Unknown operation {operation}")
         return image_operation
 
@@ -122,14 +123,14 @@ class Story(Base):
     state = Column(SQLAlchemyEnum(StoryState), default=StoryState.completed, nullable=False)
     audio_counter = Column(Integer, default=0)
     audio = Column(Text, default=None, nullable=True)
-    
+
     imageModelId = Column(Integer, ForeignKey('image_models.imageModelId'), default=1)
     drawingStyleId = Column(Integer, ForeignKey('drawing_styles.drawingStyleId'), default=2)
     colorBlindOptionId = Column(Integer, ForeignKey('colorblind_options.colorBlindOptionId'), default=1)
     regenerateImage = Column(Boolean, default=True)
 
     images = relationship("Image", backref="story", cascade="all, delete-orphan", lazy="selectin")
-    
+
     imageModel = relationship("ImageModel", lazy="selectin")
     drawingStyle = relationship("DrawingStyle", lazy="selectin")
     colorBlindOption = relationship("ColorBlindOption", lazy="selectin")
@@ -199,7 +200,7 @@ class Story(Base):
 
     def update_state(self, state: StoryState):
         self.state = state
-    
+
     def update_settings(self, imageModelId=None, drawingStyleId=None, colorBlindOptionId=None, regenerateImage=None):
         if imageModelId is not None:
             self.imageModelId = imageModelId
@@ -239,7 +240,7 @@ class Story(Base):
 
     async def upload_image(self, image_binary: str):
         logger.debug(f"Calling `upload_image`...")
-        self.image_counter +=1
+        self.image_counter += 1
         image_id = f"img_{self.storyId}_{self.image_counter}"
         dir_path = f"/etc/images/{self.userId}/{self.storyId}"
         os.makedirs(dir_path, exist_ok=True)
@@ -253,12 +254,13 @@ class Story(Base):
 
         # Validate file extension
         if file_extension not in ['jpeg', 'jpg', 'png']:
-            raise ValueError(f"Unsupported image format: {file_extension}. Only JPEG, JPG, and PNG formats are supported.")
+            raise ValueError(
+                f"Unsupported image format: {file_extension}. Only JPEG, JPG, and PNG formats are supported.")
 
         # Decode base64 data
         image_data = base64.b64decode(base64_data)
         image_filename = f"{image_id}.png"
-        
+
         # Convert JPEG to PNG if needed, otherwise keep as is
         if file_extension in ['jpeg', 'jpg']:
             # Convert JPEG to PNG using PIL
@@ -267,7 +269,7 @@ class Story(Base):
             # Convert to RGB if necessary (in case of RGBA)
             if image.mode in ('RGBA', 'LA', 'P'):
                 image = image.convert('RGB')
-            
+
             # Save as PNG
             image_path = os.path.join(dir_path, image_filename)
             image.save(image_path, 'PNG')
@@ -312,25 +314,25 @@ class Story(Base):
             case Operation.SKETCH_FROM_SCRATCH:
                 logger.debug(f"Operation {Operation.SKETCH_FROM_SCRATCH}")
                 await self.upload_image(image_operation.canvas_data)
-                
+
                 # Only generate new image if regenerateImage is True
                 logger.debug(f"`regenerateImage` is set to {self.regenerateImage}")
                 if self.regenerateImage:
                     base64_image = await self.generate_image_sketch_from_scratch()
                     await self.upload_image(base64_image)
-                
+
                 new_text = await self.generate_no_change_text_string()
                 self.set_formatted_text(new_text)
                 self.audio = None
             case Operation.SKETCH_ON_IMAGE:
                 logger.debug(f"Operation {Operation.SKETCH_ON_IMAGE}")
                 await self.upload_image(image_operation.canvas_data)
-                
+
                 # Only generate new image if regenerateImage is True
                 if self.regenerateImage:
                     base64_image = await self.generate_image_sketch_on_image()
                     await self.upload_image(base64_image)
-                
+
                 new_text = await self.generate_no_change_text_string()
                 self.set_formatted_text(new_text)
                 self.audio = None
@@ -561,4 +563,3 @@ class User(Base):
                             user_ach.completedAt = current_time
 
         return user_ach
-
