@@ -144,13 +144,15 @@ async def sketch_on_image(client, image_path, previous_image_path, text=None, dr
     # Build dynamic prompt
     prompt = (
         f"The first image is the most recent version, and the second image is the previous version. "
-        "Analyze both images and identify the changes made from the second (older) image to the first (newer) one. "
+        "Analyze both images and identify the visual changes made from the second (older) image to the first (newer) one. "
         "Now, generate a new sketch that continues to evolve the newer image, applying similar types of modifications and refinements. "
         f"Render the new sketch in the {style_prompt} style. "
         "Keep the number of frames exactly the same and separated clearly by arrows. "
         "Do not add or remove any frames. Make only the minimal visual changes necessary to evolve the sketch in the same direction. "
         "Preserve the overall composition and intention of the original drawings. "
-        "If the newer image includes added colors, shapes, or markings (e.g., over a character’s head or body), interpret them as intentional design elements or objects (e.g., hair, hat, accessories, clothing) and incorporate them into the new image accordingly and meaningfully."
+        "If the newer image includes additional marks, colors, or shapes (e.g., over characters or within scenes), interpret them intelligently: "
+        "they may represent new objects (e.g., tools, props, environmental details), people, or features (e.g., hair, hats, clothing). "
+        "Incorporate such additions meaningfully into the sketch, treating them as intentional and contextually relevant parts of the scene or characters."
     )
 
     # Add colorblind considerations if needed
@@ -175,6 +177,7 @@ async def sketch_on_image(client, image_path, previous_image_path, text=None, dr
     image_url = f"data:image/png;base64,{response.data[0].b64_json}"
 
     return image_url
+
 
 
 
