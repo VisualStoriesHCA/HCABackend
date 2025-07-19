@@ -144,15 +144,23 @@ async def sketch_on_image(client, image_path, previous_image_path, text=None, dr
     # Build dynamic prompt
     prompt = (
         f"The first image is the most recent version, and the second image is the previous version. "
-        "Analyze both images and identify the visual changes made from the second (older) image to the first (newer) one. "
-        "Now, generate a new sketch that continues to evolve the newer image, applying similar types of modifications and refinements. "
+        "Analyze both images and identify the changes made from the second (older) image to the first (newer) one. "
+        "Now generate a new image that continues evolving the first image, applying the same kinds of refinements. "
         f"Render the new sketch in the {style_prompt} style. "
         "Keep the number of frames exactly the same and separated clearly by arrows. "
-        "Do not add or remove any frames. Make only the minimal visual changes necessary to evolve the sketch in the same direction. "
-        "Preserve the overall composition and intention of the original drawings. "
-        "If the newer image includes additional marks, colors, or shapes (e.g., over characters or within scenes), interpret them intelligently and semantically: "
-        "they may represent new objects (e.g., tools, props, environmental elements like a sun or shark), new people or characters, or new visual features (e.g., hair, hats, clothing, patterns, or numbers on shirts). "
-        "Incorporate such additions into the sketch as intentional and contextually appropriate elements, enhancing the meaning and clarity of the scene."
+        "Do not add or remove any frames. Make only minimal and intentional visual changes to continue the progression. "
+
+        # === Color fidelity block ===
+        "Strictly preserve all existing colors and their exact placements from the newer image — this includes both the original and any newly added colors. "
+        "Do not alter the hue, tone, white balance, or overall warmth of the image. "
+        "Avoid any tendency to shift the color palette toward yellower, redder, or warmer tones unless explicitly indicated. "
+        "Shading, lighting, and background balance should remain neutral and consistent with the original image's tone. "
+
+        # === Interpretation guidance ===
+        "If new elements (such as objects, shapes, marks, or details) were added in the newer image — even if roughly drawn — treat them as intentional and meaningful. "
+        "For example, a small colored mark over a character might be a hat, hair, number on a shirt, or even an object like a sun or shark in the scene. "
+        "Incorporate all these additions accurately and deliberately into the output image as coherent visual elements, not as noise or artifacts. "
+        "Respect user-drawn elements, even if sketchy or abstract. Do not simplify, ignore, or replace them arbitrarily."
     )
 
     # Add colorblind considerations if needed
