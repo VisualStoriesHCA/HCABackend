@@ -150,9 +150,9 @@ async def sketch_on_image(client, image_path, previous_image_path, text=None, dr
         "Keep the number of frames exactly the same and separated clearly by arrows. "
         "Do not add or remove any frames. Make only the minimal visual changes necessary to evolve the sketch in the same direction. "
         "Preserve the overall composition and intention of the original drawings. "
-        "If the newer image includes additional marks, colors, or shapes (e.g., over characters or within scenes), interpret them intelligently: "
-        "they may represent new objects (e.g., tools, props, environmental details), people, or features (e.g., hair, hats, clothing). "
-        "Incorporate such additions meaningfully into the sketch, treating them as intentional and contextually relevant parts of the scene or characters."
+        "If the newer image includes additional marks, colors, or shapes (e.g., over characters or within scenes), interpret them intelligently and semantically: "
+        "they may represent new objects (e.g., tools, props, environmental elements like a sun or shark), new people or characters, or new visual features (e.g., hair, hats, clothing, patterns, or numbers on shirts). "
+        "Incorporate such additions into the sketch as intentional and contextually appropriate elements, enhancing the meaning and clarity of the scene."
     )
 
     # Add colorblind considerations if needed
@@ -177,6 +177,7 @@ async def sketch_on_image(client, image_path, previous_image_path, text=None, dr
     image_url = f"data:image/png;base64,{response.data[0].b64_json}"
 
     return image_url
+
 
 
 
