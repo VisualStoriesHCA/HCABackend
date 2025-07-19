@@ -131,6 +131,51 @@ async def story_to_image(client, story, drawing_style_id=2, colorblind_option_id
     return image_url
 
 
+async def sketch_on_image(client, image_path, previous_image_path, text=None, drawing_style_id=2,
+                          colorblind_option_id=1):
+    logger.debug(
+        f"Calling `sketch_on_image` with\n\timage_path:{image_path}\n\tprevious_mage_path:{previous_image_path}\n\ttext:{text}\n\tdrawing_style_id:{drawing_style_id}\n\tcolorblind_option_id:{colorblind_option_id}"
+    )
+
+    # Get dynamic prompt components
+    style_prompt = get_drawing_style_prompt(drawing_style_id)
+    colorblind_prompt = get_colorblind_prompt(colorblind_option_id)
+
+    # Build dynamic prompt
+    prompt = (
+        f"The first image is the most recent version, and the second image is the previous version. "
+        "Analyze both images and identify the changes made from the second (older) image to the first (newer) one. "
+        f"Now, generate a new sketch that continues to evolve the newer image, applying the same types of modifications and refinements as were made from the previous to the latest. "
+        f"Render this new image in the {style_prompt} style. "
+        "Keep the number of frames exactly the same and separated clearly by arrows. "
+        "Do not add or remove any frames. Make only the minimal visual changes necessary to evolve the sketch in the same direction. "
+        "Preserve the overall composition and intention of the original drawings."
+    )
+
+    # Add colorblind considerations if needed
+    if colorblind_prompt:
+        prompt += f" Apply the following visual accessibility considerations: {colorblind_prompt}. "
+
+    # Add text handling
+    if text:
+        prompt += (
+            f" The user provided the following text as reference: '{text}'. "
+            "Use it only as context. Do not write this text on the image unless it is already part of the original sketch."
+        )
+
+    response = await client.images.edit(
+        model="gpt-image-1",
+        image=[open(image_path, "rb"), open(previous_image_path, "rb")],
+        prompt=prompt,
+        n=1,
+        quality="high",
+        size="auto",
+    )
+    image_url = f"data:image/png;base64,{response.data[0].b64_json}"
+
+    return image_url
+
+
 async def modify_image(client, image_path, text=None, drawing_style_id=2, colorblind_option_id=1):
     logger.debug(
         f"Calling `modify_image` with\n\timage_path:{image_path}\n\ttext:{text}\n\tdrawing_style_id:{drawing_style_id}\n\tcolorblind_option_id:{colorblind_option_id}")

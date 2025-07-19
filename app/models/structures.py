@@ -365,12 +365,19 @@ class Story(Base):
         logger.debug("Calling 'generate_image_sketch_on_image'")
         logger.debug(f"Creating OpenAI client...")
         client = AsyncOpenAI(api_key=os.environ["OPENAI_API_TOKEN"])
-        from ..models.openai_client import modify_image
+        from ..models.openai_client import sketch_on_image
+        previous_image_path = f"/etc/images/{self.userId}/{self.storyId}/{self.images[-2].imageId}.png"
         image_path = f"/etc/images/{self.userId}/{self.storyId}/{self.images[-1].imageId}.png"
         original_text = self.get_raw_text()
-        logger.debug("Calling 'modify_image'")
+        logger.debug("Calling 'sketch_on_image'")
         logger.debug(f"Story: {original_text}")
-        return await modify_image(client, image_path, original_text, self.drawingStyleId, self.colorBlindOptionId)
+        return await sketch_on_image(client,
+                                     image_path,
+                                     previous_image_path,
+                                     original_text,
+                                     self.drawingStyleId,
+                                     self.colorBlindOptionId,
+                                     )
 
     async def modify_image_from_text(self, text="") -> str:
         client = AsyncOpenAI(api_key=os.environ["OPENAI_API_TOKEN"])
