@@ -134,7 +134,7 @@ async def story_to_image(client, story, drawing_style_id=2, colorblind_option_id
 async def sketch_on_image(client, image_path, previous_image_path, text=None, drawing_style_id=2,
                           colorblind_option_id=1):
     logger.debug(
-        f"Calling `sketch_on_image` with\n\timage_path:{image_path}\n\tprevious_mage_path:{previous_image_path}\n\ttext:{text}\n\tdrawing_style_id:{drawing_style_id}\n\tcolorblind_option_id:{colorblind_option_id}"
+        f"Calling `sketch_on_image` with\n\timage_path:{image_path}\n\tprevious_image_path:{previous_image_path}\n\ttext:{text}\n\tdrawing_style_id:{drawing_style_id}\n\tcolorblind_option_id:{colorblind_option_id}"
     )
 
     # Get dynamic prompt components
