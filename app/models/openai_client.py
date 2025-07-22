@@ -1,9 +1,10 @@
 import base64
-import base64
 import logging
+
 import aiofiles
 
 logger = logging.getLogger(__name__)
+
 
 # Helper functions for dynamic prompting
 def get_drawing_style_prompt(drawing_style_id: int) -> str:
@@ -11,7 +12,7 @@ def get_drawing_style_prompt(drawing_style_id: int) -> str:
     styles = {
         1: "photorealistic",
         2: "cartoony",
-        3: "sketch-style", 
+        3: "sketch-style",
         4: "oil painting"
     }
     return styles.get(drawing_style_id, "cartoony")
@@ -21,10 +22,10 @@ def get_colorblind_prompt(colorblind_option_id: int) -> str:
     """Generate colorblind-aware prompt addition"""
     if colorblind_option_id == 1:  # None
         return ""
-    
+
     colorblind_instructions = {
         2: "Make sure to avoid red-green color combinations as the user has protanopia (red-blind). Use blues, yellows, and other colors that are easily distinguishable.",
-        3: "Make sure to avoid red-green color combinations as the user has deuteranopia (green-blind). Use blues, yellows, and other colors that are easily distinguishable.", 
+        3: "Make sure to avoid red-green color combinations as the user has deuteranopia (green-blind). Use blues, yellows, and other colors that are easily distinguishable.",
         4: "Make sure to avoid blue-yellow color combinations as the user has tritanopia (blue-blind). Use reds, greens, and other colors that are easily distinguishable."
     }
     return colorblind_instructions.get(colorblind_option_id, "")
@@ -42,18 +43,16 @@ async def image_to_story(client, path, original_text=None):
     logger.info(f"Original text: {original_text}")
 
     if original_text:
-        prompt = f"""You are a creative writing assistant helping users develop stories from their sketch images. 
-
-I have an existing story and a new sketch image drawing that the user created. Please update the story to match what's shown in the sketch while keeping as much of the original text as possible.
-
-Original story: "{original_text}"
-Please look at the user's sketch image and update the story to reflect what's drawn, making only the necessary changes to match the new visual elements. Keep the same writing style, structure, and tone. Return only the updated story text."""
+        prompt = f"""You are a creative writing assistant that adapts stories based on user-created sketch images.
+        You will be given an original story and a new sketch image drawn by the user. Your task is to revise the story so that it reflects the visual elements of the new sketch while preserving as much of the original text, style, tone, and structure as possible.
+        Original story: "{original_text}"
+        Look closely at the sketch image and interpret it to the best of your ability — even if it’s abstract, unclear, or minimal. Use your creativity and inference skills to make logical, imaginative updates to the story. Do **not** respond with statements like “I can’t see the image” or “Sorry, I cannot help.” Always provide an updated version of the story text, even if you have to guess or fill in details.
+        Return only the revised story text, with no additional explanation."""
     else:
-        prompt = """You are a creative writing assistant helping users create stories from their sketch images.
-
-Please look at this user-created sketch image and write a creative short story based on what you see. The sketch image may be simple or rough - that's perfectly fine. Focus on the main elements, characters, or scenes you can identify and create an engaging story around them.
-
-Please write a short story (2-4 sentences) that brings this sketch image to life. Return only the story text."""
+        prompt = """You are a creative writing assistant that writes short stories based on user-created sketch images.
+                    You will be shown a sketch image created by the user. Your task is to write a short, engaging story (2–4 sentences) inspired by the visual content of the sketch. The image may be simple, abstract, or ambiguous — that's okay. Use your imagination to identify characters, elements, or scenes and build a story around them.
+                    Always provide a story. Do **not** say things like “I cannot see the image” or “Sorry, I can’t help.” Even if the image is unclear, make your best guess and tell a story based on what could reasonably be there.
+                    Return only the story text, with no explanations or disclaimers."""
 
     response = await client.chat.completions.create(
         model="gpt-4o",
@@ -110,20 +109,20 @@ async def story_to_image(client, story, drawing_style_id=2, colorblind_option_id
     # Get dynamic prompt components
     style_prompt = get_drawing_style_prompt(drawing_style_id)
     colorblind_prompt = get_colorblind_prompt(colorblind_option_id)
-    
+
     # Build dynamic prompt
     prompt = f"Please draw a colored sketch or image for the provided story using a {style_prompt} style. Try not to draw any text on the image from the story. The sketch image should contain several scenes going one after another. Keep it in a simple schematic way. and make the least number of changes possible."
-    
+
     # Add colorblind considerations if needed
     if colorblind_prompt:
         prompt += f" {colorblind_prompt}"
-    
+
     prompt += f" The story is:\n{story}"
-    
+
     response = await client.images.generate(
         model="gpt-image-1",
         prompt=prompt,
-        #quality="high",
+        # quality="high",
         n=1,
         size="auto",
     )
@@ -132,21 +131,88 @@ async def story_to_image(client, story, drawing_style_id=2, colorblind_option_id
     return image_url
 
 
-async def modify_image(client, image_path, text=None, drawing_style_id=2, colorblind_option_id=1):
+async def sketch_on_image(client, image_path, previous_image_path, text=None, drawing_style_id=2,
+                          colorblind_option_id=1):
+    logger.debug(
+        f"Calling `sketch_on_image` with\n\timage_path:{image_path}\n\tprevious_image_path:{previous_image_path}\n\ttext:{text}\n\tdrawing_style_id:{drawing_style_id}\n\tcolorblind_option_id:{colorblind_option_id}"
+    )
+
     # Get dynamic prompt components
     style_prompt = get_drawing_style_prompt(drawing_style_id)
     colorblind_prompt = get_colorblind_prompt(colorblind_option_id)
-    
+
     # Build dynamic prompt
-    prompt = f"Generate from this sketch image a story using a {style_prompt} style. try to separate the frames with the arrows and do not change the number of frames. please do not change the number of frames. and make the least number of changes possible"
-    
+    prompt = (
+        f"The first image is the most recent version, and the second image is the previous version. "
+        "Analyze both images and identify the changes made from the second (older) image to the first (newer) one. "
+        "Now generate a new image that continues evolving the first image, applying the same kinds of refinements. "
+        f"Render the new sketch in the {style_prompt} style. "
+        "Keep the number of frames exactly the same and separated clearly by arrows. "
+        "Do not add or remove any frames. Make only minimal and intentional visual changes to continue the progression. "
+
+        # === Color fidelity block ===
+        "Strictly preserve all existing colors and their exact placements from the newer image — this includes both the original and any newly added colors. "
+        "Do not alter the hue, tone, white balance, or overall warmth of the image. "
+        "Avoid any tendency to shift the color palette toward yellower, redder, or warmer tones unless explicitly indicated. "
+        "Shading, lighting, and background balance should remain neutral and consistent with the original image's tone. "
+
+        # === Interpretation guidance ===
+        "If new elements (such as objects, shapes, marks, or details) were added in the newer image — even if roughly drawn — treat them as intentional and meaningful. "
+        "For example, a small colored mark over a character might be a hat, hair, number on a shirt, or even an object like a sun or shark in the scene. "
+        "Incorporate all these additions accurately and deliberately into the output image as coherent visual elements, not as noise or artifacts. "
+        "Respect user-drawn elements, even if sketchy or abstract. Do not simplify, ignore, or replace them arbitrarily."
+    )
+
     # Add colorblind considerations if needed
     if colorblind_prompt:
-        prompt += f" {colorblind_prompt}"
-    
+        prompt += f" Apply the following visual accessibility considerations: {colorblind_prompt}. "
+
+    # Add text handling
     if text:
-        prompt += f" this is the text, make only the necessary changes: {text} but do not write the text on the picture"
-        
+        prompt += (
+            f" The user provided the following text as reference: '{text}'. "
+            "Use it only as context. Do not write this text on the image unless it is already part of the original sketch."
+        )
+
+    response = await client.images.edit(
+        model="gpt-image-1",
+        image=[open(image_path, "rb"), open(previous_image_path, "rb")],
+        prompt=prompt,
+        n=1,
+        quality="high",
+        size="auto",
+    )
+    image_url = f"data:image/png;base64,{response.data[0].b64_json}"
+
+    return image_url
+
+
+async def modify_image(client, image_path, text=None, drawing_style_id=2, colorblind_option_id=1):
+    logger.debug(
+        f"Calling `modify_image` with\n\timage_path:{image_path}\n\ttext:{text}\n\tdrawing_style_id:{drawing_style_id}\n\tcolorblind_option_id:{colorblind_option_id}")
+    # Get dynamic prompt components
+    style_prompt = get_drawing_style_prompt(drawing_style_id)
+    colorblind_prompt = get_colorblind_prompt(colorblind_option_id)
+
+    # Build dynamic prompt
+    prompt = (
+        f"Modify this sketch image in the {style_prompt} style. "
+        "Keep the number of frames exactly the same and separated clearly by the arrows. "
+        "Do not add or remove any frames. Make only the minimal visual changes necessary to improve or interpret the image in the requested style. "
+        "Preserve the original composition and drawing as much as possible."
+    )
+
+    # Add colorblind considerations if needed
+    if colorblind_prompt:
+        prompt += f" Apply the following visual accessibility considerations: {colorblind_prompt}. "
+
+    # Add text handling
+    if text:
+        prompt += (
+            f" The user provided the following text as reference: '{text}'. "
+            "Use it only as context. Do not write this text on the image unless it is already part of the original sketch."
+        )
+
     response = await client.images.edit(
         model="gpt-image-1",
         image=[open(image_path, "rb")],

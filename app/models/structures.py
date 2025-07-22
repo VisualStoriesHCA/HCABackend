@@ -8,19 +8,17 @@ from typing import List, Dict
 
 from PIL import Image as PIL_Image
 from openai import AsyncOpenAI
-from sqlalchemy import Integer, Boolean, select, update, Enum as SQLAlchemyEnum, and_
-from sqlalchemy import create_engine, Column, String, DateTime, ForeignKey, Enum as SqlEnum, Text
-from sqlalchemy.orm import relationship, sessionmaker
+from sqlalchemy import Column, String, DateTime, ForeignKey, Text
+from sqlalchemy import Integer, Boolean, select, Enum as SQLAlchemyEnum, and_
+from sqlalchemy.orm import relationship
 
 from ..models import utils
 from ..models.achievements import Achievement
 from ..models.base import Base
 from ..routers.schemas import StoryState, AchievementState
 
-from .settings import ImageModel, DrawingStyle, ColorBlindOption
-
-
 logger = logging.getLogger(__name__)
+
 
 class Operation(Enum):
     NO_CHANGE = 1
@@ -55,11 +53,11 @@ class ImageOperation:
             case Operation.NO_CHANGE:
                 image_operation.image_id = image_operation_dict["imageId"]
             case Operation.SKETCH_FROM_SCRATCH:
-                image_operation.canvas_data= image_operation_dict["canvasData"]
+                image_operation.canvas_data = image_operation_dict["canvasData"]
             case Operation.SKETCH_ON_IMAGE:
                 image_operation.image_id = image_operation_dict["imageId"]
                 image_operation.canvas_data = image_operation_dict["canvasData"]
-            case _ :
+            case _:
                 raise Exception(f"Unknown operation {operation}")
         return image_operation
 
@@ -125,14 +123,14 @@ class Story(Base):
     state = Column(SQLAlchemyEnum(StoryState), default=StoryState.completed, nullable=False)
     audio_counter = Column(Integer, default=0)
     audio = Column(Text, default=None, nullable=True)
-    
+
     imageModelId = Column(Integer, ForeignKey('image_models.imageModelId'), default=1)
     drawingStyleId = Column(Integer, ForeignKey('drawing_styles.drawingStyleId'), default=2)
     colorBlindOptionId = Column(Integer, ForeignKey('colorblind_options.colorBlindOptionId'), default=1)
     regenerateImage = Column(Boolean, default=True)
 
     images = relationship("Image", backref="story", cascade="all, delete-orphan", lazy="selectin")
-    
+
     imageModel = relationship("ImageModel", lazy="selectin")
     drawingStyle = relationship("DrawingStyle", lazy="selectin")
     colorBlindOption = relationship("ColorBlindOption", lazy="selectin")
@@ -202,7 +200,7 @@ class Story(Base):
 
     def update_state(self, state: StoryState):
         self.state = state
-    
+
     def update_settings(self, imageModelId=None, drawingStyleId=None, colorBlindOptionId=None, regenerateImage=None):
         if imageModelId is not None:
             self.imageModelId = imageModelId
@@ -241,7 +239,8 @@ class Story(Base):
             self.name = story_title
 
     async def upload_image(self, image_binary: str):
-        self.image_counter +=1
+        logger.debug(f"Calling `upload_image`...")
+        self.image_counter += 1
         image_id = f"img_{self.storyId}_{self.image_counter}"
         dir_path = f"/etc/images/{self.userId}/{self.storyId}"
         os.makedirs(dir_path, exist_ok=True)
@@ -255,12 +254,13 @@ class Story(Base):
 
         # Validate file extension
         if file_extension not in ['jpeg', 'jpg', 'png']:
-            raise ValueError(f"Unsupported image format: {file_extension}. Only JPEG, JPG, and PNG formats are supported.")
+            raise ValueError(
+                f"Unsupported image format: {file_extension}. Only JPEG, JPG, and PNG formats are supported.")
 
         # Decode base64 data
         image_data = base64.b64decode(base64_data)
         image_filename = f"{image_id}.png"
-        
+
         # Convert JPEG to PNG if needed, otherwise keep as is
         if file_extension in ['jpeg', 'jpg']:
             # Convert JPEG to PNG using PIL
@@ -269,7 +269,7 @@ class Story(Base):
             # Convert to RGB if necessary (in case of RGBA)
             if image.mode in ('RGBA', 'LA', 'P'):
                 image = image.convert('RGB')
-            
+
             # Save as PNG
             image_path = os.path.join(dir_path, image_filename)
             image.save(image_path, 'PNG')
@@ -283,6 +283,7 @@ class Story(Base):
 
         self.images.append(new_image)
         self.lastEdited = datetime.now(timezone.utc)
+        logger.debug(f"Image was successfully uploaded.")
 
     async def generate_audio(self, text: str):
         new_raw_text = utils.get_raw_text(text)
@@ -303,6 +304,7 @@ class Story(Base):
         self.audio = f"http://localhost:8080/audio/{self.userId}/{self.storyId}/{audio_id}"
 
     async def execute_image_operation(self, image_operation: ImageOperation):
+        logger.debug(f"Calling `execute_image_operation` with operation {image_operation.operation}")
         match image_operation.operation:
             case Operation.NO_CHANGE:
                 logger.debug(f"Operation {Operation.NO_CHANGE}")
@@ -312,24 +314,25 @@ class Story(Base):
             case Operation.SKETCH_FROM_SCRATCH:
                 logger.debug(f"Operation {Operation.SKETCH_FROM_SCRATCH}")
                 await self.upload_image(image_operation.canvas_data)
-                
+
                 # Only generate new image if regenerateImage is True
+                logger.debug(f"`regenerateImage` is set to {self.regenerateImage}")
                 if self.regenerateImage:
                     base64_image = await self.generate_image_sketch_from_scratch()
                     await self.upload_image(base64_image)
-                
+
                 new_text = await self.generate_no_change_text_string()
                 self.set_formatted_text(new_text)
                 self.audio = None
             case Operation.SKETCH_ON_IMAGE:
                 logger.debug(f"Operation {Operation.SKETCH_ON_IMAGE}")
                 await self.upload_image(image_operation.canvas_data)
-                
+
                 # Only generate new image if regenerateImage is True
                 if self.regenerateImage:
                     base64_image = await self.generate_image_sketch_on_image()
                     await self.upload_image(base64_image)
-                
+
                 new_text = await self.generate_no_change_text_string()
                 self.set_formatted_text(new_text)
                 self.audio = None
@@ -341,27 +344,42 @@ class Story(Base):
             await self.execute_image_operation(image_operation)
 
     async def generate_no_change_text_string(self):
+        logger.debug("Calling 'generate_no_change_text_string'")
+        logger.debug(f"Creating OpenAI client...")
         client = AsyncOpenAI(api_key=os.environ["OPENAI_API_TOKEN"])
         image_path = f"/etc/images/{self.userId}/{self.storyId}/{self.images[-1].imageId}.png"
         from ..models.openai_client import image_to_story
         original_text = self.get_raw_text()
+        logger.debug("Calling 'image_to_story'")
         return await image_to_story(client, image_path, original_text)
 
     async def generate_image_sketch_from_scratch(self) -> str:
+        logger.debug("Calling 'generate_image_sketch_from_scratch'")
+        logger.debug(f"Creating OpenAI client...")
         client = AsyncOpenAI(api_key=os.environ["OPENAI_API_TOKEN"])
+        logger.debug(f"OpenAI client created successfully!")
         from ..models.openai_client import modify_image
         image_path = f"/etc/images/{self.userId}/{self.storyId}/{self.images[-1].imageId}.png"
+        logger.debug("Calling 'modify_image'")
         return await modify_image(client, image_path, None, self.drawingStyleId, self.colorBlindOptionId)
 
     async def generate_image_sketch_on_image(self) -> str:
         logger.debug("Calling 'generate_image_sketch_on_image'")
+        logger.debug(f"Creating OpenAI client...")
         client = AsyncOpenAI(api_key=os.environ["OPENAI_API_TOKEN"])
-        from ..models.openai_client import modify_image
+        from ..models.openai_client import sketch_on_image
+        previous_image_path = f"/etc/images/{self.userId}/{self.storyId}/{self.images[-2].imageId}.png"
         image_path = f"/etc/images/{self.userId}/{self.storyId}/{self.images[-1].imageId}.png"
         original_text = self.get_raw_text()
-        logger.debug("Calling 'modify_image'")
+        logger.debug("Calling 'sketch_on_image'")
         logger.debug(f"Story: {original_text}")
-        return await modify_image(client, image_path, original_text, self.drawingStyleId, self.colorBlindOptionId)
+        return await sketch_on_image(client,
+                                     image_path,
+                                     previous_image_path,
+                                     original_text,
+                                     self.drawingStyleId,
+                                     self.colorBlindOptionId,
+                                     )
 
     async def modify_image_from_text(self, text="") -> str:
         client = AsyncOpenAI(api_key=os.environ["OPENAI_API_TOKEN"])
@@ -545,4 +563,3 @@ class User(Base):
                             user_ach.completedAt = current_time
 
         return user_ach
-
