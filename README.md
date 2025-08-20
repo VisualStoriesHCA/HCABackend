@@ -16,7 +16,7 @@ To use the `gpt-image-1` model in this project, ensure you have:
     - Create an .env file and save the token running the backend:
 
       ```txt
-      OPENAI_API_TOKEN="your_token_here"
+      OPENAI_API_TOKEN=<your_token_here>
       ```
 
 **Note:** The backend will not work without a verified profile and a valid API token.

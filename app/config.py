@@ -4,6 +4,7 @@ from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "HCA FastAPI Backend"
+    OPENAI_API_TOKEN: str
     PROJECT_DESCRIPTION: str = "A cross-platform FastAPI backend with live reload capability"
     VERSION: str = "0.1.0"
     API_PREFIX: str = "/api"
