@@ -580,18 +580,15 @@ class User(Base):
 
         return user_ach
 
-    async def generate_user_suggestions(self, max_history=5):
-        if self.get_raw_text():
-            return None
-        try:
-            raise Exception
-            user = self.user
-            recent_stories = [story.text for story in user.stories if story.text][:max_history]
+    async def update_personalized_suggestions(self, max_history=10):
+        recent_stories = [story.text for story in self.stories if story.text][:max_history]
+        import random
+        number = random.random()
+        if recent_stories and number > 0.8:
             from ..models.openai_client import recent_stories_to_suggestions
             client = AsyncOpenAI(api_key=os.environ["OPENAI_API_TOKEN"])
             suggestion = await recent_stories_to_suggestions(client, recent_stories)
-            return [suggestion]
-        except:
-            return ["A curious cat discovers a magical doorway that leads to a world made entirely of yarn.",
-                    "On a rainy afternoon, Emma finds an old umbrella that can fly anywhere she imagines.",
-                    "The last tree in the city starts glowing at night, attracting neighborhood animals."]
+            self.personalized_suggestions = [suggestion] + self.personalized_suggestions[:-1]
+            print("Personalized suggestions updated")
+            return
+        print("No updates made to personalized suggestions...")

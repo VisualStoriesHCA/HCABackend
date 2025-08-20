@@ -2,7 +2,7 @@
 
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
@@ -125,7 +125,8 @@ async def get_user_stories(userId: str = Query(...), maxEntries: int = Query(50)
 
 
 @router.get("/getStoryById", response_model=StoryDetailsResponse, operation_id="getStoryById")
-async def get_story_by_id(userId: str, storyId: str, db: AsyncSession = Depends(get_async_db)):
+async def get_story_by_id(userId: str, storyId: str, background_tasks: BackgroundTasks,
+                          db: AsyncSession = Depends(get_async_db)):
     result = await db.execute(select(User).filter_by(userId=userId))
     user = result.scalar_one_or_none()
     if not user:
@@ -136,7 +137,15 @@ async def get_story_by_id(userId: str, storyId: str, db: AsyncSession = Depends(
     if not story:
         raise HTTPException(status_code=404, detail="Story not found")
     user_suggestions = user.personalized_suggestions
+    background_tasks.add_task(generate_personalized_suggestions, userId, db)
     return story.to_story_details_response(user_suggestions)
+
+
+async def generate_personalized_suggestions(userId: str, db: AsyncSession):
+    result = await db.execute(select(User).filter_by(userId=userId))
+    user = result.scalar_one()
+    await user.update_personalized_suggestions()
+    await db.commit()
 
 
 @router.get("/getUserAchievements", response_model=UserAchievementsResponse, operation_id="getUserAchievements")
