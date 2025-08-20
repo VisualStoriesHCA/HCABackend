@@ -166,6 +166,7 @@ class StoryDetailsResponse(BaseModel):
     storyImages: List[ImageResponse]
     audioUrl: Optional[str] = None
     settings: StorySettings
+    suggestions: Optional[List[str]] = None
 
 
 class UserStoriesResponse(BaseModel):
