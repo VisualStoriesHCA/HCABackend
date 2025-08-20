@@ -118,7 +118,7 @@ class Story(Base):
     storyId = Column(String, primary_key=True)
     name = Column(String)
     text = Column(Text, default="")
-    coverageImage = Column(String, default="http://localhost:8080/assets/logos/new_story")
+    coverageImage = Column(String, default="/api/assets/logos/new_story")
     lastEdited = Column(String, default=lambda: datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"))
     userId = Column(String, ForeignKey('users.userId'))
     image_counter = Column(Integer, default=0)
@@ -290,7 +290,7 @@ class Story(Base):
             with open(os.path.join(dir_path, image_filename), "wb") as img_file:
                 img_file.write(image_data)
 
-        image_url = f"http://localhost:8080/images/{self.userId}/{self.storyId}/{image_id}"
+        image_url = f"/api/images/{self.userId}/{self.storyId}/{image_id}"
         new_image = Image(imageId=image_id, url=image_url, storyId=self.storyId)
 
         self.images.append(new_image)
@@ -313,7 +313,7 @@ class Story(Base):
         with open(os.path.join(dir_path, audio_filename), "wb") as audio_file:
             audio_file.write(audio_wav)
         self.lastEdited = datetime.now(timezone.utc)
-        self.audio = f"http://localhost:8080/audio/{self.userId}/{self.storyId}/{audio_id}"
+        self.audio = f"/api/audio/{self.userId}/{self.storyId}/{audio_id}"
 
     async def execute_image_operation(self, image_operation: ImageOperation):
         logger.debug(f"Calling `execute_image_operation` with operation {image_operation.operation}")
