@@ -180,10 +180,19 @@ class Story(Base):
             "suggestions": await self.get_story_suggestions()
         }
 
-    async def get_story_suggestions(self):
+    async def get_story_suggestions(self, max_suggestions=3):
+        user = self.user
         if self.get_raw_text():
             return None
-        return ["test1", "test2", "test3"]
+        suggestions = []
+        i = 0
+        for story in user.stories:
+            if i >= max_suggestions:
+                break
+            if story.text:
+                suggestions.append(story.text)
+                i += 1
+        return suggestions
 
     def get_raw_text(self) -> str:
         return utils.get_raw_text(self.text)

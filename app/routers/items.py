@@ -5,6 +5,7 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy.orm import selectinload
 
 from ..models.db import async_session
 from ..models.settings import ImageModel, DrawingStyle, ColorBlindOption
@@ -126,7 +127,10 @@ async def get_user_stories(userId: str = Query(...), maxEntries: int = Query(50)
 
 @router.get("/getStoryById", response_model=StoryDetailsResponse, operation_id="getStoryById")
 async def get_story_by_id(userId: str, storyId: str, db: AsyncSession = Depends(get_async_db)):
-    result = await db.execute(select(Story).filter_by(storyId=storyId, userId=userId))
+    result = await db.execute(select(Story)
+                              .options(selectinload(Story.user)
+                                       .selectinload(User.stories))
+                              .filter_by(storyId=storyId, userId=userId))
     story = result.scalar_one_or_none()
     if not story:
         raise HTTPException(status_code=404, detail="Story not found")
