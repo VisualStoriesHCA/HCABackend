@@ -105,6 +105,7 @@ async def image_to_title(client, path):
     return response.choices[0].message.content
 
 
+
 async def story_to_image(client, story, drawing_style_id=2, colorblind_option_id=1):
     # Get dynamic prompt components
     style_prompt = get_drawing_style_prompt(drawing_style_id)
@@ -234,3 +235,26 @@ async def text_to_speech(client, text):
         response_format="wav"
     )
     return audio_response.read()
+
+
+async def recent_stories_to_suggestions(client, recent_stories):
+    prompt = (
+        f"Based on the following user-written stories, suggest a single new story idea that are similar in style or theme. "
+        "The story idea should be no more than 2 sentences long. "
+        "The story should use different names and characters from previous ones."
+        f"Previous stories:\n{recent_stories}\n\n"
+        "Send the story without quotation marks."
+        "New story idea:"
+    )
+
+    response = await client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {"role": "system", "content": "You are a creative story idea generator."},
+            {"role": "user", "content": prompt}
+        ],
+        temperature=0.8,
+        max_tokens=100
+    )
+
+    return response.choices[0].message.content

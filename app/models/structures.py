@@ -10,7 +10,9 @@ from PIL import Image as PIL_Image
 from openai import AsyncOpenAI
 from sqlalchemy import Column, String, DateTime, ForeignKey, Text
 from sqlalchemy import Integer, Boolean, select, Enum as SQLAlchemyEnum, and_
+from sqlalchemy.ext.mutable import MutableList
 from sqlalchemy.orm import relationship
+from sqlalchemy.types import JSON
 
 from ..models import utils
 from ..models.achievements import Achievement
@@ -163,7 +165,7 @@ class Story(Base):
             "lastEdited": self.lastEdited
         }
 
-    async def to_story_details_response(self):
+    def to_story_details_response(self, story_suggestions=None):
         return {
             "storyId": self.storyId,
             "storyName": self.name,
@@ -177,22 +179,17 @@ class Story(Base):
                 "colorBlindOptionId": self.colorBlindOptionId,
                 "regenerateImage": self.regenerateImage
             },
-            "suggestions": await self.get_story_suggestions()
+            "suggestions": self.get_story_suggestions(story_suggestions)
         }
 
-    async def get_story_suggestions(self, max_suggestions=3):
-        user = self.user
+    def get_story_suggestions(self, story_suggestions):
         if self.get_raw_text():
             return None
-        suggestions = []
-        i = 0
-        for story in user.stories:
-            if i >= max_suggestions:
-                break
-            if story.text:
-                suggestions.append(story.text)
-                i += 1
-        return suggestions
+        if not story_suggestions:
+            return []
+        print("llllllllllllllllllllllllllllll")
+        print(story_suggestions)
+        return story_suggestions
 
     def get_raw_text(self) -> str:
         return utils.get_raw_text(self.text)
@@ -420,6 +417,10 @@ class User(Base):
     story_counter = Column(Integer, default=0)
     stories = relationship("Story", backref="user", cascade="all, delete-orphan", lazy="selectin")
     achievements = relationship("UserAchievement", cascade="all, delete-orphan", lazy="selectin")
+    personalized_suggestions = Column(MutableList.as_mutable(JSON), default=[
+        "A curious cat discovers a magical doorway that leads to a world made entirely of yarn.",
+        "On a rainy afternoon, Emma finds an old umbrella that can fly anywhere she imagines.",
+        "The last tree in the city starts glowing at night, attracting neighborhood animals."])
 
     def __str__(self):
         return f"Id: {self.userId}\nName: {self.name}\nUsername: {self.userName}\nAccount Created: {self.accountCreated}"
@@ -578,3 +579,19 @@ class User(Base):
                             user_ach.completedAt = current_time
 
         return user_ach
+
+    async def generate_user_suggestions(self, max_history=5):
+        if self.get_raw_text():
+            return None
+        try:
+            raise Exception
+            user = self.user
+            recent_stories = [story.text for story in user.stories if story.text][:max_history]
+            from ..models.openai_client import recent_stories_to_suggestions
+            client = AsyncOpenAI(api_key=os.environ["OPENAI_API_TOKEN"])
+            suggestion = await recent_stories_to_suggestions(client, recent_stories)
+            return [suggestion]
+        except:
+            return ["A curious cat discovers a magical doorway that leads to a world made entirely of yarn.",
+                    "On a rainy afternoon, Emma finds an old umbrella that can fly anywhere she imagines.",
+                    "The last tree in the city starts glowing at night, attracting neighborhood animals."]

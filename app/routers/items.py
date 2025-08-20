@@ -5,7 +5,6 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy.orm import selectinload
 
 from ..models.db import async_session
 from ..models.settings import ImageModel, DrawingStyle, ColorBlindOption
@@ -127,14 +126,17 @@ async def get_user_stories(userId: str = Query(...), maxEntries: int = Query(50)
 
 @router.get("/getStoryById", response_model=StoryDetailsResponse, operation_id="getStoryById")
 async def get_story_by_id(userId: str, storyId: str, db: AsyncSession = Depends(get_async_db)):
+    result = await db.execute(select(User).filter_by(userId=userId))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
     result = await db.execute(select(Story)
-                              .options(selectinload(Story.user)
-                                       .selectinload(User.stories))
                               .filter_by(storyId=storyId, userId=userId))
     story = result.scalar_one_or_none()
     if not story:
         raise HTTPException(status_code=404, detail="Story not found")
-    return await story.to_story_details_response()
+    user_suggestions = user.personalized_suggestions
+    return story.to_story_details_response(user_suggestions)
 
 
 @router.get("/getUserAchievements", response_model=UserAchievementsResponse, operation_id="getUserAchievements")
@@ -183,7 +185,7 @@ async def update_images_by_text(request: UpdateImagesByTextRequest, db: AsyncSes
     db.add(achievement)
     await db.commit()
     await db.refresh(achievement)
-    return await story.to_story_details_response()
+    return story.to_story_details_response()
 
 
 @router.post("/updateTextByImages", response_model=StoryDetailsResponse, operation_id="updateTextByImages")
@@ -225,7 +227,7 @@ async def update_text_by_images(request: UpdateTextByImagesRequest, db: AsyncSes
     db.add(achievement)
     await db.commit()
     await db.refresh(achievement)
-    return await story.to_story_details_response()
+    return story.to_story_details_response()
 
 
 @router.post("/uploadImage", response_model=StoryDetailsResponse, operation_id="uploadImage")
@@ -249,7 +251,7 @@ async def upload_image(request: UploadImageRequest, db: AsyncSession = Depends(g
     story.update_state(StoryState.completed)
     await db.commit()
     await db.refresh(story)
-    return await story.to_story_details_response()
+    return story.to_story_details_response()
 
 
 @router.post("/generateAudio", response_model=StoryDetailsResponse, operation_id="generateAudio")
@@ -271,7 +273,7 @@ async def generate_audio(request: GenerateAudioRequest, db: AsyncSession = Depen
     story.update_state(StoryState.completed)
     await db.commit()
     await db.refresh(story)
-    return await story.to_story_details_response()
+    return story.to_story_details_response()
 
 
 @router.get("/getAvailableSettings", response_model=AvailableSettingsResponse, operation_id="getAvailableSettings")
@@ -367,4 +369,4 @@ async def set_story_options(request: SetStoryOptionsRequest, db: AsyncSession = 
     await db.commit()
     await db.refresh(story)
 
-    return await story.to_story_details_response()
+    return story.to_story_details_response()
