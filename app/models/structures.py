@@ -176,8 +176,14 @@ class Story(Base):
                 "drawingStyleId": self.drawingStyleId,
                 "colorBlindOptionId": self.colorBlindOptionId,
                 "regenerateImage": self.regenerateImage
-            }
+            },
+            "suggestions": self.get_story_suggestions()
         }
+
+    def get_story_suggestions(self):
+        if self.get_raw_text():
+            return None
+        return ["test1", "test2", "test3"]
 
     def get_raw_text(self) -> str:
         return utils.get_raw_text(self.text)
