@@ -130,7 +130,7 @@ async def get_story_by_id(userId: str, storyId: str, db: AsyncSession = Depends(
     story = result.scalar_one_or_none()
     if not story:
         raise HTTPException(status_code=404, detail="Story not found")
-    return story.to_story_details_response()
+    return await story.to_story_details_response()
 
 
 @router.get("/getUserAchievements", response_model=UserAchievementsResponse, operation_id="getUserAchievements")
@@ -179,7 +179,7 @@ async def update_images_by_text(request: UpdateImagesByTextRequest, db: AsyncSes
     db.add(achievement)
     await db.commit()
     await db.refresh(achievement)
-    return story.to_story_details_response()
+    return await story.to_story_details_response()
 
 
 @router.post("/updateTextByImages", response_model=StoryDetailsResponse, operation_id="updateTextByImages")
@@ -221,7 +221,7 @@ async def update_text_by_images(request: UpdateTextByImagesRequest, db: AsyncSes
     db.add(achievement)
     await db.commit()
     await db.refresh(achievement)
-    return story.to_story_details_response()
+    return await story.to_story_details_response()
 
 
 @router.post("/uploadImage", response_model=StoryDetailsResponse, operation_id="uploadImage")
@@ -245,7 +245,7 @@ async def upload_image(request: UploadImageRequest, db: AsyncSession = Depends(g
     story.update_state(StoryState.completed)
     await db.commit()
     await db.refresh(story)
-    return story.to_story_details_response()
+    return await story.to_story_details_response()
 
 
 @router.post("/generateAudio", response_model=StoryDetailsResponse, operation_id="generateAudio")
@@ -267,7 +267,7 @@ async def generate_audio(request: GenerateAudioRequest, db: AsyncSession = Depen
     story.update_state(StoryState.completed)
     await db.commit()
     await db.refresh(story)
-    return story.to_story_details_response()
+    return await story.to_story_details_response()
 
 
 @router.get("/getAvailableSettings", response_model=AvailableSettingsResponse, operation_id="getAvailableSettings")
@@ -363,4 +363,4 @@ async def set_story_options(request: SetStoryOptionsRequest, db: AsyncSession = 
     await db.commit()
     await db.refresh(story)
 
-    return story.to_story_details_response()
+    return await story.to_story_details_response()

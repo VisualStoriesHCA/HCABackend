@@ -163,7 +163,7 @@ class Story(Base):
             "lastEdited": self.lastEdited
         }
 
-    def to_story_details_response(self):
+    async def to_story_details_response(self):
         return {
             "storyId": self.storyId,
             "storyName": self.name,
@@ -177,10 +177,10 @@ class Story(Base):
                 "colorBlindOptionId": self.colorBlindOptionId,
                 "regenerateImage": self.regenerateImage
             },
-            "suggestions": self.get_story_suggestions()
+            "suggestions": await self.get_story_suggestions()
         }
 
-    def get_story_suggestions(self):
+    async def get_story_suggestions(self):
         if self.get_raw_text():
             return None
         return ["test1", "test2", "test3"]
