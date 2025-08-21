@@ -568,7 +568,7 @@ class User(Base):
                     if user_ach.lastUpdate.tzinfo is None:
                         user_ach.lastUpdate = user_ach.lastUpdate.replace(tzinfo=timezone.utc)
                     delta = current_time - user_ach.lastUpdate
-                    if delta >= timedelta(minutes=1):
+                    if delta >= timedelta(days=1):
                         user_ach.currentValue += 1
                         user_ach.lastUpdate = current_time
                     if user_ach.currentValue >= 7:
