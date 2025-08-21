@@ -584,7 +584,7 @@ class User(Base):
         recent_stories = [story.text for story in self.stories if story.text][:max_history]
         import random
         number = random.random()
-        if recent_stories and number > 0.8:
+        if recent_stories and number > 0.7:
             from ..models.openai_client import recent_stories_to_suggestions
             client = AsyncOpenAI(api_key=os.environ["OPENAI_API_TOKEN"])
             suggestion = await recent_stories_to_suggestions(client, recent_stories)
